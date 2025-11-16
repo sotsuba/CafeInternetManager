@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebSocket Test</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    #log {
+      border: 1px solid #ccc;
+      padding: 8px;
+      height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      background: #f9f9f9;
+      margin-top: 10px;
+    }
+    #status {
+      font-weight: bold;
+      margin-left: 5px;
+    }
+    #imageContainer {
+      margin-top: 20px;
+    }
+    #imageContainer img {
+      max-width: 400px;
+      max-height: 400px;
+      border: 1px solid #ccc;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebSocket Test</h1>
+
+  <div>
+    Server URL:
+    <input type="text" id="wsUrl" value="ws://127.0.0.1:9002" size="40">
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn" disabled>Disconnect</button>
+    <span>Status: <span id="status">DISCONNECTED</span></span>
+  </div>
+
+  <div style="margin-top: 15px;">
+    <input type="text" id="messageInput" placeholder="Type message..." size="40">
+    <button id="sendBtn" disabled>Send</button>
+  </div>
+
+  <div id="log"></div>
+
+  <div id="imageContainer">
+    <h2>Image preview (binary from WebSocket)</h2>
+    <canvas id="screenCanvas" width="800" height="600" style="border:1px solid #ccc; margin-top:20px;"></canvas>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
