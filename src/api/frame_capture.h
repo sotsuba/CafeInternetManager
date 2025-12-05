@@ -243,9 +243,6 @@ void capture_screen(unsigned char **data, int *width, int *height, int *size) {
 #include <cstdint>
 #include <vector>
 
-// Forward declaration of Sender class
-class Sender;
-
 // C++ wrapper to send frame via WebSocket
 inline void capture_and_send_frame_ws(void *sender_ptr) {
   unsigned char *jpeg_data = NULL;
