@@ -3,7 +3,7 @@ CXXFLAGS := -std=c++17 -Wall -Wextra -O2
 INCLUDES := -Isrc -Iinclude
 
 SRC_DIR := src
-BIN := websocket_server
+BIN := server
 
 # Tìm tất cả file .cpp trong src/
 SRC := $(shell find $(SRC_DIR) -name "*.cpp")

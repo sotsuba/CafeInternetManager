@@ -12,12 +12,12 @@ public:
 };
 
 int main() {
-  try {
-    WebSocketServer server(9004);
-    server.run();
-  } catch (const std::exception &ex) {
-    std::cerr << "Fatal error: " << ex.what() << "\n";
-    return 1;
-  }
-  return 0;
+  	try {
+    	WebSocketServer server(9004);
+    	server.run();
+	} catch (const std::exception &ex) {
+		std::cerr << "Fatal error: " << ex.what() << "\n";
+		return 1;
+  	}
+  	return 0;
 }
