@@ -1,5 +1,4 @@
-#ifndef __process_manipulate__
-#define __process_manipulate__
+#pragma once 
 
 #include <string>
 #include <cstdint>
@@ -20,7 +19,7 @@ struct ProcessInfo {
 
 
 int killProcess(int pid) {
-    kill(pid, SIGKILL);
+    return kill(pid, SIGKILL);
 }
 
 static bool isNumber(const std::string& s) {
@@ -78,6 +77,3 @@ std::string listProcesses() {
     }
     return oss.str();
 }
-
-
-#endif 

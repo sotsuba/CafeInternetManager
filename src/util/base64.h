@@ -1,6 +1,4 @@
-#ifndef __base64_h__
-#define __base64_h__
-
+#pragma once 
 #include <string>
 
 static std::string base64_encode(const unsigned char* data, size_t len) {
@@ -42,5 +40,3 @@ static std::string base64_encode(const unsigned char* data, size_t len) {
 
     return out;
 }
-
-#endif

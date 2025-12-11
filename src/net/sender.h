@@ -67,7 +67,7 @@ void Sender::sendFrame_(WS_OPCODE opcode,
         opcode == WS_OPCODE::PONG ||
         opcode == WS_OPCODE::CLOSE;
 
-    if (isControl && len > 125) {
+    if (isControl && len >= 125) {
         throw std::runtime_error("control frame payload too big");
     }
 

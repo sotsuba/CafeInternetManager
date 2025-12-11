@@ -1,5 +1,4 @@
-#ifndef __logger_h__
-#define __logger_h__
+#pragma once 
 
 #include <stdexcept>
 #include <string>   
@@ -8,5 +7,3 @@
 static void throw_errno(const std::string &msg) {
     throw std::runtime_error(msg + ": " + std::strerror(errno));
 }
-
-#endif
