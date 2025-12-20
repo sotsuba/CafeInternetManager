@@ -1,0 +1,44 @@
+/* Log panel - collapsible dark theme */
+.log-container {
+  margin-top: 16px;
+}
+
+.log-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  transition: background 150ms ease;
+}
+
+.log-toggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.log-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 200ms ease;
+}
+
+.log-panel.is-open {
+  max-height: 200px;
+}
+
+.log-content {
+  margin-top: 8px;
+  padding: 12px;
+  background: #1a1a1a;
+  color: #a0ffa0;
+  border-radius: 8px;
+  font-family: "SF Mono", Monaco, Consolas, monospace;
+  font-size: 11px;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+}

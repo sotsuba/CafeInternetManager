@@ -1,0 +1,114 @@
+/* Dark Theme */
+body.dark-theme {
+  background: #1b1515;
+  color: #eee;
+}
+
+body.dark-theme .dashboard-header,
+body.dark-theme .backend-panel {
+  background: #2a2222;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme .dashboard-title,
+body.dark-theme .backend-title {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+body.dark-theme .connection-bar input {
+  background: #2a2222;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+body.dark-theme .backend-panel:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+body.dark-theme .btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-theme .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark Theme - Exclusive Session */
+body.dark-theme .exclusive-session {
+  background: #1b1515;
+  color: #fff;
+}
+
+body.dark-theme .stage-card {
+  background: #1b1515;
+}
+
+body.dark-theme .stage-title {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+body.dark-theme .stage-status {
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-theme .menu-sheet-card {
+  background: #2a2222;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+body.dark-theme .menu-item {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-theme .menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark Theme overrides for Modal */
+body.dark-theme .process-modal-card {
+  background: #1e1e1e;
+  border: 1px solid #333;
+}
+
+body.dark-theme .process-modal-header,
+body.dark-theme .process-modal-footer,
+body.dark-theme .process-table th {
+  background: #252525;
+  border-color: #333;
+}
+
+body.dark-theme .modal-title {
+  color: #eee;
+}
+
+body.dark-theme .process-table td {
+  color: #ddd;
+  border-color: #333;
+}
+
+body.dark-theme .process-table tr:hover {
+  background: #2a2a2a;
+}
+
+body.dark-theme .btn-close-modal {
+  color: #aaa;
+}
+
+body.dark-theme .btn-close-modal:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+body.dark-theme .btn-kill {
+  background: rgba(200, 0, 0, 0.15);
+  color: #ff6666;
+  border-color: rgba(200, 0, 0, 0.4);
+}
+
+body.dark-theme .btn-kill:hover {
+  background: rgba(200, 0, 0, 0.3);
+}
