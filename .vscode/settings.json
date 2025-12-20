@@ -74,5 +74,6 @@
         "bitset": "cpp",
         "regex": "cpp",
         "stack": "cpp"
-    }
+    },
+    "latex-workshop.latex.path": "/usr/bin"
 }
