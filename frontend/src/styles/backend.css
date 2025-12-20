@@ -1,0 +1,131 @@
+/* Backend grid */
+.backends-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 4px;
+  align-content: start;
+}
+
+@media (max-width: 1200px) {
+  .backends-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .backends-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Backend panel - modern card */
+.backend-panel {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.backend-panel:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.backend-panel.active {
+  border-color: #1a7f37;
+}
+
+.backend-panel.inactive {
+  opacity: 0.75;
+}
+
+.backend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.backend-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.82);
+}
+
+.backend-status-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backend-status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.backend-status.active {
+  background: rgba(26, 127, 55, 0.12);
+  color: #1a7f37;
+  border: none;
+}
+
+.backend-status.inactive {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.5);
+  border: none;
+}
+
+.stream-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.stream-indicator.streaming {
+  background: #1a7f37;
+  box-shadow: 0 0 8px rgba(26, 127, 55, 0.5);
+}
+
+.backend-canvas {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 8px;
+  display: block;
+}
+
+.backend-info {
+  display: flex;
+  gap: 12px;
+  margin: 10px 0;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.backend-controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.backend-controls button {
+  padding: 5px 10px;
+  font-size: 11px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.backend-controls button:hover {
+  background: rgba(0, 0, 0, 0.04);
+}

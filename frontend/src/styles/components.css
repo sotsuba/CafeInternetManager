@@ -1,0 +1,114 @@
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.status-badge.connected {
+  background: rgba(26, 127, 55, 0.12);
+  color: #1a7f37;
+}
+
+.status-badge.disconnected {
+  background: rgba(170, 0, 0, 0.10);
+  color: #a00;
+}
+
+.status-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 12px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.stat-item b {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.stats-bar .btn-primary,
+.stats-bar .btn-secondary {
+  margin-left: auto;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.stats-bar .btn-secondary {
+  margin-left: 0;
+}
+
+/* Client info badge */
+.client-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Target selector */
+.target-select {
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.message-input {
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  min-width: 180px;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: var(--dock0);
+}
+
+/* Empty state */
+.empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-state.is-hidden {
+  display: none;
+}

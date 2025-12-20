@@ -1,0 +1,40 @@
+/* Menu sheet */
+.menu-sheet {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 18px;
+}
+
+.menu-sheet.is-open {
+  display: flex;
+}
+
+.menu-sheet-card {
+  width: min(520px, 92vw);
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 16px;
+}
+
+.menu-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.menu-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.04);
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: rgba(0, 0, 0, 0.08);
+}

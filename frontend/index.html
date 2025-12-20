@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Backend Monitor</title>
+
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+  <link href="/src/styles/main.css" rel="stylesheet" />
+</head>
+
+<body>
+  <div id="dashboardView" class="dashboard-view">
+    <!-- Header -->
+    <div class="dashboard-header">
+      <div class="dashboard-title">Backend Monitor</div>
+      <button id="themeToggle" class="btn-secondary" style="margin-left: auto; margin-right: 12px; padding: 6px 10px;">
+        <i class="bi bi-moon-stars"></i>
+      </button>
+      <span id="status" class="status-badge disconnected">CONNECTING...</span>
+    </div>
+
+    <!-- Backend Grid -->
+    <div id="backendsGrid" class="backends-grid">
+      <div class="empty-state" id="emptyState">
+        <i class="bi bi-hdd-network" style="font-size: 48px; opacity: 0.3;"></i>
+        <div style="margin-top: 12px; color: rgba(0,0,0,0.5);">No backends discovered</div>
+        <div style="font-size: 12px; color: rgba(0,0,0,0.35);">Waiting for backends to respond...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exclusive Session (Stream Layout) -->
+  <main id="exclusiveView" class="exclusive-session">
+    <section class="stage-wrap stage-fullscreen">
+      <div class="stage-card" role="region" aria-label="Streaming stage">
+        <div class="stage-inner">
+          <div class="stage-header">
+            <div class="stage-title" id="stageTitle">Live Stage - Backend #1</div>
+            <div class="stage-status" id="statusText">Ready</div>
+          </div>
+
+          <div class="video-frame" aria-label="Video container">
+            <video id="videoEl" class="video-el" autoplay playsinline muted></video>
+            <div id="videoPlaceholder" class="video-placeholder">
+              <div class="placeholder-title">Waiting for Stream</div>
+              <div style="font-size: 13px; color: rgba(0,0,0,0.52);">Select a mode from the dock below</div>
+            </div>
+          </div>
+
+          <div class="stage-footer">
+            <div class="hint">Tip: click the orange dock buttons to switch modes.</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="dock" aria-label="Bottom dock">
+        <button class="dock-btn is-active" id="btnHome" type="button" aria-label="Home">
+          <i class="bi bi-house-door"></i>
+        </button>
+        <button class="dock-btn" id="btnShare" type="button" aria-label="Share screen">
+          <i class="bi bi-display"></i>
+        </button>
+        <button class="dock-btn" id="btnCam" type="button" aria-label="Camera">
+          <i class="bi bi-camera-video"></i>
+        </button>
+        <button class="dock-btn" id="btnMenu" type="button" aria-label="Menu">
+          <i class="bi bi-list"></i>
+        </button>
+      </nav>
+
+      <div id="menuSheet" class="menu-sheet" aria-hidden="true">
+        <div class="menu-sheet-card">
+          <div class="menu-title">Backend Control</div>
+          <div id="menuBackendInfo" class="mb-2 text-muted small">Backend #1</div>
+          <div class="menu-item" id="menuStartStream">Start Stream</div>
+          <div class="menu-item" id="menuStopStream">Stop Stream</div>
+          <div class="menu-item" id="menuProcesses">Processes</div>
+          <button id="btnCloseMenu" class="btn btn-sm btn-outline-dark mt-3" type="button">Close</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
