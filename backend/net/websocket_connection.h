@@ -58,7 +58,7 @@ WebSocketConnection::computeAcceptKey(const std::string &clientKey) {
 
 static constexpr int FRAME_RATE = 10;
 
-static std::string listProcessesText() {
+
   std::ostringstream oss;
   const auto all = Process::get_all();
   for (const auto &p : all) {
@@ -68,7 +68,7 @@ static std::string listProcessesText() {
 }
 
 void WebSocketConnection::run() {
-	performHandshake_();	
+	performHandshake_();
 
 	std::cout << "[WebSocket] Handshake done. Starting command loop.\n";
 	while (true) {

@@ -1,114 +1,74 @@
-/* Dark Theme */
-body.dark-theme {
-  background: #1b1515;
-  color: #eee;
+/* Ported from cafe-manager-dashboard/app/globals.css */
+:root {
+  --background: #141416; /* oklch(0.08 0.01 240) approx */
+  --foreground: #f2f2f4; /* oklch(0.95 0.01 240) approx */
+  --card: #1c1c1f;       /* oklch(0.12 0.015 240) approx */
+  --card-foreground: #f2f2f4;
+  --popover: #1a1a1d;
+  --popover-foreground: #f2f2f4;
+  --primary: #2dd4bf;    /* oklch(0.7 0.2 180) - Cyan-ish */
+  --primary-foreground: #141416;
+  --secondary: #242428;
+  --secondary-foreground: #dadade;
+  --muted: #2a2a2e;
+  --muted-foreground: #94949e;
+  --accent: #22c55e;     /* oklch(0.65 0.25 145) - Green */
+  --accent-foreground: #141416;
+  --destructive: #ef4444; /* oklch(0.55 0.25 25) - Red */
+  --destructive-foreground: #f2f2f4;
+  --border: #3e3e46;
+  --input: #242428;
+  --ring: #2dd4bf;
+  --radius: 0.5rem;
+
+  /* Neon glow colors */
+  --neon-cyan: #06b6d4;
+  --neon-green: #22c55e;
+  --neon-red: #ef4444;
+  --neon-yellow: #eab308;
+
+  /* Sidebar */
+  --sidebar: #1a1a1d;
+  --sidebar-foreground: #e4e4e7;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-primary-foreground: #141416;
+  --sidebar-accent: #242428;
+  --sidebar-accent-foreground: #e4e4e7;
+  --sidebar-border: #3e3e46;
 }
 
-body.dark-theme .dashboard-header,
-body.dark-theme .backend-panel {
-  background: #2a2222;
-  border-color: rgba(255, 255, 255, 0.08);
+body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    margin: 0;
+    overflow: hidden; /* App-like feel */
 }
 
-body.dark-theme .dashboard-title,
-body.dark-theme .backend-title {
-  color: rgba(255, 255, 255, 0.9);
+/* Utilities */
+.glass {
+  background: rgba(28, 28, 31, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(62, 62, 70, 0.5);
 }
 
-body.dark-theme .connection-bar input {
-  background: #2a2222;
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #fff;
+.text-primary { color: var(--primary); }
+.text-muted { color: var(--muted-foreground); }
+.bg-card { background-color: var(--card); }
+
+.glow-cyan {
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 20px rgba(6, 182, 212, 0.3);
+}
+.glow-green {
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.5), 0 0 20px rgba(34, 197, 94, 0.3);
+}
+.glow-red {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5), 0 0 20px rgba(239, 68, 68, 0.3);
 }
 
-body.dark-theme .backend-panel:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-body.dark-theme .btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-body.dark-theme .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* Dark Theme - Exclusive Session */
-body.dark-theme .exclusive-session {
-  background: #1b1515;
-  color: #fff;
-}
-
-body.dark-theme .stage-card {
-  background: #1b1515;
-}
-
-body.dark-theme .stage-title {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-body.dark-theme .stage-status {
-  color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-body.dark-theme .menu-sheet-card {
-  background: #2a2222;
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-body.dark-theme .menu-item {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-body.dark-theme .menu-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* Dark Theme overrides for Modal */
-body.dark-theme .process-modal-card {
-  background: #1e1e1e;
-  border: 1px solid #333;
-}
-
-body.dark-theme .process-modal-header,
-body.dark-theme .process-modal-footer,
-body.dark-theme .process-table th {
-  background: #252525;
-  border-color: #333;
-}
-
-body.dark-theme .modal-title {
-  color: #eee;
-}
-
-body.dark-theme .process-table td {
-  color: #ddd;
-  border-color: #333;
-}
-
-body.dark-theme .process-table tr:hover {
-  background: #2a2a2a;
-}
-
-body.dark-theme .btn-close-modal {
-  color: #aaa;
-}
-
-body.dark-theme .btn-close-modal:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-
-body.dark-theme .btn-kill {
-  background: rgba(200, 0, 0, 0.15);
-  color: #ff6666;
-  border-color: rgba(200, 0, 0, 0.4);
-}
-
-body.dark-theme .btn-kill:hover {
-  background: rgba(200, 0, 0, 0.3);
-}
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }

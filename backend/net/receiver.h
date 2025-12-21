@@ -28,7 +28,7 @@ public:
     bool recvBackend(BackendMessage& out);
     bool recvText(Sender& sender, string& out);
     bool recvBinary(std::vector<uint8_t>& out);
-    void setFd(int fd) { fd_ = fd; } 
+    void setFd(int fd) { fd_ = fd; }
 private:
     int fd_;
     bool recvFrame_(WSFrame& out);
@@ -36,7 +36,7 @@ private:
     bool parseFrameHeader_(...);
 };
 
-bool Receiver::recvExact_(void* buf, size_t len, int timeoutMs) {
+bool Receiver::recvExact_(void* buf, size_t len, int /*timeoutMs*/) {
     char* p = static_cast<char*>(buf);
     size_t received = 0;
 
@@ -201,4 +201,4 @@ bool Receiver::recvText(Sender& sender, std::string& out) {
     }
 }
 
-#endif 
+#endif

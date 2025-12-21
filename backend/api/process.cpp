@@ -50,11 +50,12 @@ std::vector<ProcessInfo> Process::get_all() {
 
 void Process::print_all(std::ostream& output) {
     auto processes = get_all();
+    output << "PID NAME USER CMD\n";
     for (const auto& proc : processes) {
-        output << "PID: " << proc.pid 
-               << ", PPID: " << proc.ppid 
-               << ", Name: " << proc.name 
-               << ", Cmd: " << proc.cmd << "\n";
+        output << proc.pid << " "
+               << proc.name << " "
+               << "root" << " "
+               << (proc.cmd.empty() ? proc.name : proc.cmd) << "\n";
     }
 }
 

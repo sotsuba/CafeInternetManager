@@ -1,0 +1,185 @@
+/* Layout Grid */
+.app-container {
+    display: grid;
+    grid-template-areas:
+        "sidebar header"
+        "sidebar main"
+        "sidebar footer";
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 60px 1fr 30px;
+    height: 100vh;
+}
+
+/* Sidebar */
+.app-sidebar {
+    grid-area: sidebar;
+    background-color: var(--sidebar);
+    border-right: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+}
+.app-sidebar h1 {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: var(--primary);
+    margin-bottom: 2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+.client-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.client-item {
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.client-item:hover {
+    background-color: var(--sidebar-accent);
+}
+.client-item.active {
+    background-color: var(--sidebar-accent);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(45, 212, 191, 0.2);
+}
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--muted-foreground);
+}
+.status-indicator.online { background-color: var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
+
+/* Header */
+.app-header {
+    grid-area: header;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    background-color: var(--background); /* Glass effect handled by parent if needed */
+}
+
+/* Main Content */
+.app-main {
+    grid-area: main;
+    padding: 1.5rem;
+    overflow-y: auto;
+    position: relative;
+}
+
+/* Process List */
+.task-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.task-table th {
+    text-align: left;
+    padding: 0.5rem;
+    color: var(--muted-foreground);
+    border-bottom: 1px solid var(--border);
+}
+.task-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.task-table tr:hover {
+    background-color: var(--secondary);
+}
+
+/* Dashboard Grid for Details View */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 columns like React code */
+    gap: 1.5rem;
+}
+
+.widget-card {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.widget-title {
+    font-weight: bold;
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Video Containers */
+.video-wrapper {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background-color: #000;
+    border-radius: calc(var(--radius) - 2px);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border);
+}
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Footer */
+.app-footer {
+    grid-area: footer;
+    border-top: 1px solid var(--border);
+    background-color: var(--sidebar);
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    gap: 1rem;
+}
+
+/* Utility Classes for Button/Inputs (Ported from Tailwind style) */
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--secondary);
+    color: var(--foreground);
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+.btn:hover { background: var(--border); }
+.btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.btn-primary:hover { opacity: 0.9; }
+.btn-destructive { background: var(--destructive); color: var(--destructive-foreground); border-color: var(--destructive); }
+.btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+
+.input {
+    background: var(--input);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    width: 100%;
+}

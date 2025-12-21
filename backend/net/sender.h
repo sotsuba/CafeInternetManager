@@ -20,7 +20,7 @@ using std::string, std::vector;
 
 
 string createHandshake(const string& acceptValue,
-                       const string& protocol = "") {
+                       const string& /*protocol*/ = "") {
     string res;
     res  = "HTTP/1.1 101 Switching Protocols\r\n"
            "Upgrade: websocket\r\n"
@@ -40,7 +40,7 @@ public:
 
     void sendBackend(uint32_t client_id, uint32_t backend_id, const uint8_t* payload, size_t len);
     void sendBackend(uint32_t client_id, uint32_t backend_id, const std::vector<uint8_t>& payload);
-    
+
     void sendText(const std::string& s);
     void sendPing(const std::vector<uint8_t>& payload);
     void sendPong(const std::vector<uint8_t>& payload);
@@ -101,7 +101,7 @@ void Sender::sendAll_(const void* buf, size_t len, int timeout_ms) {
 
     while (left > 0) {
         ssize_t n = send(fd_, data, left, 0);
-        
+
         if (n > 0) {
             data += n;
             left -= n;
@@ -119,11 +119,11 @@ void Sender::sendAll_(const void* buf, size_t len, int timeout_ms) {
                 pfd.events = POLLOUT;
 
                 int r = poll(&pfd, 1, timeout_ms);
-                if (r > 0) 
+                if (r > 0)
                     continue; // socket writeable, retry send
-                if (r == 0) 
+                if (r == 0)
                     throw std::runtime_error("send timeout");
-                if (r < 0) 
+                if (r < 0)
                     throw_errno("poll");
             }
 
