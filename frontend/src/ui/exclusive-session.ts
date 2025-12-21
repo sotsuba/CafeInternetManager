@@ -1,6 +1,8 @@
+// @ts-ignore
+import JMuxer from "jmuxer";
 import { GatewayWsClient } from "../ws/client";
-import { switchView } from "./view-manager";
 import { showProcessModal } from "./process-manager";
+import { switchView } from "./view-manager";
 
 // DOM Elements
 const stageTitle = document.getElementById("stageTitle") as HTMLDivElement;
@@ -29,13 +31,24 @@ let currentBackendId: number | null = null;
 let wsClient: GatewayWsClient | null = null;
 let isCameraStreaming = false;
 let isScreenStreaming = false;
-
-// Internal canvas for rendering JPEG frames to video stream
-const internalCanvas = document.createElement("canvas");
-const internalCtx = internalCanvas.getContext("2d");
+let jmuxer: any = null;
 
 export function initExclusiveSession(client: GatewayWsClient) {
     wsClient = client;
+
+    // Initialize JMuxer attached to the main video element
+    if (!jmuxer) {
+        jmuxer = new JMuxer({
+            node: 'videoEl',
+            mode: 'video',
+            flushingTime: 0,
+            fps: 30,
+            debug: true,
+            onError: function(data: any) {
+                console.warn('JMuxer error:', data);
+            }
+        });
+    }
 
     // Dock Events
     dock.home.addEventListener("click", () => {
@@ -84,13 +97,11 @@ export function enterSession(backendId: number) {
     currentBackendId = backendId;
     stageTitle.textContent = `Live Stage - Backend #${backendId}`;
     menuBackendInfo.textContent = `Backend #${backendId}`;
-    stageTitle.textContent = `Live Stage - Backend #${backendId}`;
-    menuBackendInfo.textContent = `Backend #${backendId}`;
     setActiveMode("home");
 
     // Reset video
-    videoEl.srcObject = null;
     placeholder.style.display = "flex";
+    if (jmuxer) jmuxer.reset();
 
     switchView({ view: "exclusive", backendId });
 }
@@ -101,28 +112,22 @@ export function exitSession() {
     switchView({ view: "dashboard" });
 }
 
-export function handleExclusiveFrame(jpegPayload: ArrayBuffer) {
-    if (!internalCtx) return;
+export function handleExclusiveFrame(payload: ArrayBuffer) {
+    // If we receive data, hide placeholder
+    if (placeholder.style.display !== "none") {
+        placeholder.style.display = "none";
+    }
 
-    const blob = new Blob([jpegPayload], { type: "image/jpeg" });
-    createImageBitmap(blob).then((bitmap) => {
-        if (internalCanvas.width !== bitmap.width || internalCanvas.height !== bitmap.height) {
-            internalCanvas.width = bitmap.width;
-            internalCanvas.height = bitmap.height;
+    // Feed raw H.264 stream to JMuxer
+    if (jmuxer) {
+        try {
+            jmuxer.feed({
+                video: new Uint8Array(payload)
+            });
+        } catch (e) {
+            console.error("JMuxer feed error", e);
         }
-
-        if (videoEl.srcObject === null) {
-            const stream = internalCanvas.captureStream();
-            videoEl.srcObject = stream;
-            placeholder.style.display = "none";
-            void videoEl.play();
-        }
-
-        internalCtx.drawImage(bitmap, 0, 0);
-        bitmap.close();
-    }).catch(err => {
-        console.error("Failed to render exclusive frame", err);
-    });
+    }
 }
 
 function setActiveMode(mode: Mode) {

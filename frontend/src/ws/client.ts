@@ -3,7 +3,7 @@ import { buildBackendFrame, encodeText, isJpeg, parseBackendFrame, tryDecodePrin
 export type BackendFrameEvent =
 	| { kind: "jpeg"; backendId: number; payloadLen: number; frameBytes: number; payload: ArrayBuffer }
 	| { kind: "text"; backendId: number; payloadLen: number; frameBytes: number; text: string }
-	| { kind: "binary"; backendId: number; payloadLen: number; frameBytes: number };
+	| { kind: "binary"; backendId: number; payloadLen: number; frameBytes: number; payload: ArrayBuffer };
 
 export type ClientEvents = {
 	onLog: (msg: string) => void;
@@ -119,6 +119,7 @@ export class GatewayWsClient {
 					backendId: frame.backendId,
 					payloadLen: frame.payloadLen,
 					frameBytes: buffer.byteLength,
+					payload: frame.payload,
 				});
 			}
 		};

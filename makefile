@@ -1,8 +1,8 @@
 CXX := g++
 CXXFLAGS := -std=c++17 -Wall -Wextra -O2
-INCLUDES := -Isrc -Iinclude
+INCLUDES := -Ibackend -Iinclude
 
-SRC_DIR := src
+SRC_DIR := backend
 OBJ_DIR := build
 BIN := server
 
@@ -17,6 +17,7 @@ $(BIN): $(OBJ)
 
 # Rule build .o từ .cpp
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@ $(INCLUDES)
 
 clean:

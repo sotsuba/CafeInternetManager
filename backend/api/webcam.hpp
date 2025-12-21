@@ -22,25 +22,29 @@ public:
 
     std::vector<uint8_t> capture_frame();
 
-    
+
     // Start recording to file. Format depends on extension:
     //   .mjpeg / .mjpg  — raw MJPEG stream (simplest, plays in VLC/ffplay)
     //   .avi            — simple AVI container with MJPEG
     // Returns true if recording started successfully.
     bool start_recording(const std::string& filename, int fps = 30);
-    
+
     // Stop recording and finalize file.
     void stop_recording();
-    
+
     // Check if currently recording.
     bool is_recording() const;
-    
+
     // Get number of frames recorded so far.
     size_t get_frames_recorded() const;
 
     // Optional: set callback for each captured frame during recording
     using FrameCallback = std::function<void(const std::vector<uint8_t>& frame)>;
+    using StreamCallback = std::function<bool(const std::vector<uint8_t>&)>; // New
     void set_frame_callback(FrameCallback cb);
+
+    // Blocking H.264 stream using FFmpeg
+    void stream_h264(StreamCallback cb);
 
     // ─────────────────────────────────────────────────────────────
     // Getters

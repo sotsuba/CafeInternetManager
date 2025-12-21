@@ -1,7 +1,7 @@
+import { addBackendPanel, clearAllBackends, getBackend, initBackendGrid, renderJpegToCanvas, setBackendActive, setBackendStreaming } from "./ui/backends";
+import { enterSession, handleExclusiveFrame, initExclusiveSession, updateBackendStatusDisplay } from "./ui/exclusive-session";
+import { handleProcessListResponse, initProcessManager } from "./ui/process-manager";
 import { GatewayWsClient } from "./ws/client";
-import { initBackendGrid, addBackendPanel, getBackend, clearAllBackends, setBackendActive, setBackendStreaming, renderJpegToCanvas } from "./ui/backends";
-import { initExclusiveSession, enterSession, handleExclusiveFrame, updateBackendStatusDisplay } from "./ui/exclusive-session";
-import { initProcessManager, handleProcessListResponse } from "./ui/process-manager";
 
 // State
 let wsClient: GatewayWsClient;
@@ -14,7 +14,7 @@ const statusSpan = document.getElementById("status") as HTMLSpanElement;
 const backendsGrid = document.getElementById("backendsGrid") as HTMLElement;
 
 // Config
-const WS_URL = "ws://127.0.0.1:8080";
+const WS_URL = "ws://192.168.1.10:8080";
 const RECONNECT_DELAY = 2000; // 2 seconds
 const PING_INTERVAL = 5000;   // 5 seconds
 
@@ -67,15 +67,21 @@ wsClient = new GatewayWsClient({
 		}
 		b.lastFrameTime = now;
 
-		if (ev.kind === "jpeg") {
-			setBackendStreaming(b, true);
-			renderJpegToCanvas(b, ev.payload, (err) => console.error(err));
+			if (ev.kind === "jpeg") {
+				setBackendStreaming(b, true);
+				renderJpegToCanvas(b, ev.payload, (err) => console.error(err));
 
-			// If this backend is in exclusive mode, pipe the frame there too
-			if (activeExclusiveBackendId === ev.backendId) {
-				handleExclusiveFrame(ev.payload);
-			}
-		} else if (ev.kind === "text") {
+				// If this backend is in exclusive mode, pipe the frame there too
+				if (activeExclusiveBackendId === ev.backendId) {
+					handleExclusiveFrame(ev.payload);
+				}
+			} else if (ev.kind === "binary") {
+				// H.264 Stream Data
+				setBackendStreaming(b, true);
+				if (activeExclusiveBackendId === ev.backendId) {
+					handleExclusiveFrame(ev.payload || new ArrayBuffer(0));
+				}
+			} else if (ev.kind === "text") {
 			console.log(`💬 #${ev.backendId}: ${ev.text}`);
 			if (ev.text.includes("Streaming started")) {
 				setBackendStreaming(b, true);

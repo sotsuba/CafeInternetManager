@@ -221,6 +221,53 @@ int Webcam::get_width() const { return width_; }
 int Webcam::get_height() const { return height_; }
 std::string Webcam::get_last_error() const { return last_error_; }
 
+void Webcam::stream_h264(StreamCallback cb) {
+    // 1. Close current V4L2 handle if open (FFmpeg needs access)
+    close();
+
+    // 2. Build FFmpeg command for V4L2
+    std::string dev_path = "/dev/video" + std::to_string(device_index_);
+
+    // Auto-detect if default device is missing
+    if (access(dev_path.c_str(), F_OK) == -1) {
+        for (int i = 0; i < 64; ++i) { // Check video0 to video63
+            std::string p = "/dev/video" + std::to_string(i);
+            if (access(p.c_str(), F_OK) == 0) {
+                dev_path = p;
+                device_index_ = i;
+                break;
+            }
+        }
+    }
+
+    // Command: 320x240 @ 15fps, raw H.264
+    // Reduced FPS to 15 to minimize USB bandwidth (~2MB/s) and prevent corruption.
+    // Buffer restored to 64KB.
+    std::string cmd = "ffmpeg -f v4l2 -framerate 15 -video_size 320x240 -i " + dev_path +
+                      " -c:v libx264 -preset ultrafast -tune zerolatency "
+                      "-profile:v baseline -level 3.0 -bf 0 "
+                      "-pix_fmt yuv420p "
+                      "-f h264 - 2>ffmpeg_webcam.log";
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        last_error_ = "popen failed: " + std::string(strerror(errno));
+        return;
+    }
+
+    std::vector<uint8_t> buffer(65536); // Reverted to 64KB
+    while (true) {
+        size_t bytes = fread(buffer.data(), 1, buffer.size(), pipe);
+        if (bytes > 0) {
+            std::vector<uint8_t> chunk(buffer.begin(), buffer.begin() + bytes);
+            if (!cb(chunk)) break;
+        } else {
+            break;
+        }
+    }
+    pclose(pipe);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Recording implementation
 // ─────────────────────────────────────────────────────────────────────────────
@@ -259,7 +306,7 @@ bool Webcam::start_recording(const std::string& filename, int fps) {
     }
 
     // Check if AVI format requested
-    bool is_avi = (filename.size() >= 4 && 
+    bool is_avi = (filename.size() >= 4 &&
                    (filename.substr(filename.size() - 4) == ".avi" ||
                     filename.substr(filename.size() - 4) == ".AVI"));
 
@@ -282,7 +329,7 @@ void Webcam::stop_recording() {
     }
 
     // Finalize AVI if needed
-    bool is_avi = (record_filename_.size() >= 4 && 
+    bool is_avi = (record_filename_.size() >= 4 &&
                    (record_filename_.substr(record_filename_.size() - 4) == ".avi" ||
                     record_filename_.substr(record_filename_.size() - 4) == ".AVI"));
     if (is_avi) {
@@ -300,14 +347,14 @@ void Webcam::recording_loop() {
         auto frame = capture_frame();
         if (!frame.empty()) {
             // Write frame
-            bool is_avi = (record_filename_.size() >= 4 && 
+            bool is_avi = (record_filename_.size() >= 4 &&
                            (record_filename_.substr(record_filename_.size() - 4) == ".avi" ||
                             record_filename_.substr(record_filename_.size() - 4) == ".AVI"));
 
             if (is_avi) {
                 // Record offset for index
                 frame_offsets_.push_back(static_cast<uint32_t>(record_file_.tellp()));
-                
+
                 // Write AVI frame chunk: "00dc" + size + data (padded to even)
                 record_file_.write("00dc", 4);
                 uint32_t size = frame.size();
@@ -415,7 +462,7 @@ void Webcam::write_avi_header() {
 void Webcam::finalize_avi() {
     // Get current position (end of movi data)
     auto movi_end = record_file_.tellp();
-    
+
     // Write idx1 chunk
     record_file_.write("idx1", 4);
     write_le32(record_file_, frame_offsets_.size() * 16);
@@ -426,7 +473,7 @@ void Webcam::finalize_avi() {
         record_file_.write("00dc", 4);  // chunk id
         write_le32(record_file_, 0x10);  // flags (keyframe)
         write_le32(record_file_, frame_offsets_[i] - movi_start);  // offset
-        
+
         // Read frame size from file (stored after "00dc")
         // For simplicity, we'll estimate — in production you'd store sizes
         write_le32(record_file_, width_ * height_ / 10);  // approximate size

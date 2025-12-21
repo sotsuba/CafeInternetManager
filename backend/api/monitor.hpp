@@ -15,7 +15,7 @@ public:
 
     // Capture screen to menory (JPEG format)
     virtual std::vector<uint8_t> capture() = 0;
-    
+
     // Get backend name for logging
     virtual std::string name() const = 0;
 
@@ -49,7 +49,12 @@ public:
 
     // Optional callback invoked for each captured frame while recording.
     using FrameCallback = std::function<void(const std::vector<uint8_t>&)>;
+    using StreamCallback = std::function<bool(const std::vector<uint8_t>&)>;
+
     void set_frame_callback(FrameCallback cb);
+
+    // Blocking stream loop (H.264). Runs until callback returns false.
+    void stream_h264(StreamCallback cb);
 
     std::string get_last_error() const;
     std::string backend_name() const;
@@ -69,5 +74,3 @@ private:
     std::string record_filename_;
     FrameCallback frame_callback_;
 };
-
-

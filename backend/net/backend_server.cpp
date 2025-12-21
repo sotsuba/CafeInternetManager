@@ -278,24 +278,26 @@ void BackendServer::handleClient(int fd) {
     handlers["start_monitor_stream"] = [&](const auto&, uint32_t cid, uint32_t bid) {
         if (screen_streaming.exchange(true)) return (void)send_text("ERROR: Already streaming", cid, bid);
 
+        // Stop webcam if active
+        if (webcam_streaming.load()) stop_webcam();
+
         send_text("OK: Streaming started", cid, bid);
 
         stop_screen();                 // ensure no previous thread
         screen_streaming.store(true);
 
-        screen_thread = std::thread([&, cid, bid]() {
-            const int FPS = 15;
-            const useconds_t interval = 1000000 / FPS;
+    screen_thread = std::thread([&, cid, bid]() {
             Monitor monitor;
 
-            while (alive.load() && screen_streaming.load()) {
-                auto jpeg = monitor.capture_frame();
-                if (jpeg.empty()) make_dummy_jpeg(jpeg, 1024);
+            // Continuous H.264 Stream (using FFmpeg pipe)
+            // Blocks here until callback returns false or stream ends
+            monitor.stream_h264([&](const std::vector<uint8_t>& chunk) {
+                if (!alive.load() || !screen_streaming.load()) return false; // Stop stream
+                return send_bytes(chunk, cid, bid);
+            });
 
-                if (!send_bytes(jpeg, cid, bid)) break;
-                usleep(interval);
-            }
             screen_streaming.store(false);
+            send_text("INFO: Streaming stopped", cid, bid);
         });
     };
 
@@ -327,36 +329,31 @@ void BackendServer::handleClient(int fd) {
     handlers["start_webcam_stream"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
         if (webcam_streaming.exchange(true)) return (void)send_text("ERROR: Webcam already streaming", cid, bid);
 
+        // Stop screen stream if active (exclusive mode)
+        if (screen_streaming.load()) stop_screen();
+
         int idx = (a.size() >= 2) ? to_int(a[1], webcam_index) : webcam_index;
         webcam_index = idx;
 
-        stop_webcam();                 // ensure no previous thread
+        stop_webcam();
         webcam_cam = std::make_unique<Webcam>(webcam_index);
-        if (!webcam_cam->open(640, 480)) {
-            auto resp = std::string("ERROR: Cannot open webcam: ") + webcam_cam->get_last_error();
-            webcam_cam.reset();
-            webcam_streaming.store(false);
-            return (void)send_text(resp, cid, bid);
-        }
+
+        // We don't explicit open() because stream_h264 uses ffmpeg which handles it.
+        // But we can check if device node exists? For now just try stream.
 
         send_text("OK: Webcam streaming started", cid, bid);
         webcam_streaming.store(true);
 
         webcam_thread = std::thread([&, cid, bid]() {
-            const int FPS = 15;
-            const useconds_t interval = 1000000 / FPS;
+            if (!webcam_cam) webcam_cam = std::make_unique<Webcam>(webcam_index);
 
-            while (alive.load() && webcam_streaming.load()) {
-                auto frame = webcam_cam ? webcam_cam->capture_frame() : std::vector<uint8_t>{};
-                if (frame.empty()) {
-                    Monitor m;
-                    frame = m.capture_frame();
-                    if (frame.empty()) make_dummy_jpeg(frame, 1024);
-                }
-                if (!send_bytes(frame, cid, bid)) break;
-                usleep(interval);
-            }
+            webcam_cam->stream_h264([&](const std::vector<uint8_t>& chunk) {
+                if (!alive.load() || !webcam_streaming.load()) return false;
+                return send_bytes(chunk, cid, bid);
+            });
+
             webcam_streaming.store(false);
+            send_text("INFO: Webcam stopped", cid, bid);
         });
     };
 
@@ -381,7 +378,7 @@ void BackendServer::handleClient(int fd) {
         if (a.size() < 2) return (void)send_text("ERROR: Missing PID", cid, bid);
         int pid = to_int(a[1], -1);
         if (pid <= 0) return (void)send_text("ERROR: Invalid PID", cid, bid);
-        
+
         Process p(pid);
         if (p.destroy() == 0) send_text("OK: Process killed " + std::to_string(pid), cid, bid);
         else {
