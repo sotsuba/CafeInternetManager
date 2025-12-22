@@ -14,7 +14,7 @@ public:
     Keylogger(const Keylogger&) = delete;
     Keylogger& operator=(const Keylogger&) = delete;
 
-    bool start();
+    bool start(std::function<void(std::string)> callback);
     void stop();
     bool is_running() const;
     std::string get_last_error() const;

