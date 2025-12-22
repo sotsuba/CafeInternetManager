@@ -9,6 +9,7 @@
 #include <cstring>
 #include <cerrno>
 #include <chrono>
+#include <iostream>
 
 // Helper to write little-endian values
 static void write_le32(std::ostream& os, uint32_t val) {
@@ -222,7 +223,7 @@ int Webcam::get_height() const { return height_; }
 std::string Webcam::get_last_error() const { return last_error_; }
 
 void Webcam::stream_h264(StreamCallback cb) {
-    // 1. Close current V4L2 handle if open (FFmpeg needs access)
+    // 1. Close current V4L2 handle if open (FFmpeg needs exclusive access)
     close();
 
     // 2. Build FFmpeg command for V4L2
@@ -235,37 +236,53 @@ void Webcam::stream_h264(StreamCallback cb) {
             if (access(p.c_str(), F_OK) == 0) {
                 dev_path = p;
                 device_index_ = i;
+                std::cout << "[Webcam] Auto-detected device: " << p << std::endl;
                 break;
             }
         }
     }
 
-    // Command: 320x240 @ 15fps, raw H.264
-    // Reduced FPS to 15 to minimize USB bandwidth (~2MB/s) and prevent corruption.
-    // Buffer restored to 64KB.
-    std::string cmd = "ffmpeg -f v4l2 -framerate 15 -video_size 320x240 -i " + dev_path +
+    // OPTIMIZED: 640x480 @ 30fps for better quality, matching monitor.cpp approach
+    // Using same ultrafast + zerolatency preset as screen capture
+    std::string cmd = "ffmpeg -f v4l2 -framerate 30 -video_size 640x480 -i " + dev_path +
                       " -c:v libx264 -preset ultrafast -tune zerolatency "
-                      "-profile:v baseline -level 3.0 -bf 0 "
+                      "-g 30 "  // GOP size = framerate for 1-second keyframe interval
+                      "-profile:v baseline -level 3.1 -bf 0 "  // Level 3.1 for 640x480
                       "-pix_fmt yuv420p "
                       "-f h264 - 2>ffmpeg_webcam.log";
+
+    std::cout << "[Webcam] Starting H.264 stream: " << dev_path << " @ 640x480 30fps" << std::endl;
 
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
         last_error_ = "popen failed: " + std::string(strerror(errno));
+        std::cerr << "[Webcam] ERROR: " << last_error_ << std::endl;
         return;
     }
 
-    std::vector<uint8_t> buffer(65536); // Reverted to 64KB
+    std::vector<uint8_t> buffer(65536); // 64KB buffer (same as monitor)
+    size_t total_bytes = 0;
     while (true) {
         size_t bytes = fread(buffer.data(), 1, buffer.size(), pipe);
         if (bytes > 0) {
+            total_bytes += bytes;
             std::vector<uint8_t> chunk(buffer.begin(), buffer.begin() + bytes);
-            if (!cb(chunk)) break;
+            if (!cb(chunk)) {
+                std::cout << "[Webcam] Stream stopped by callback. Total: "
+                          << (total_bytes / 1024) << " KB" << std::endl;
+                break;
+            }
         } else {
+            if (feof(pipe)) {
+                std::cout << "[Webcam] FFmpeg stream ended (EOF)" << std::endl;
+            } else {
+                std::cerr << "[Webcam] Read error" << std::endl;
+            }
             break;
         }
     }
     pclose(pipe);
+    std::cout << "[Webcam] Stream closed" << std::endl;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

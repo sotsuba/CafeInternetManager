@@ -58,15 +58,6 @@ WebSocketConnection::computeAcceptKey(const std::string &clientKey) {
 
 static constexpr int FRAME_RATE = 10;
 
-
-  std::ostringstream oss;
-  const auto all = Process::get_all();
-  for (const auto &p : all) {
-    oss << p.pid << "\t" << p.ppid << "\t" << p.name << "\t" << p.cmd << "\n";
-  }
-  return oss.str();
-}
-
 void WebSocketConnection::run() {
 	performHandshake_();
 

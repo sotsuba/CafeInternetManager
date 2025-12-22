@@ -55,7 +55,7 @@ const elProcessListBody = document.getElementById("process-list-body")!;
 const chkSelectAll = document.getElementById("chk-select-all-procs") as HTMLInputElement;
 
 // --- Config ---
-const WS_URL = "ws://192.168.1.10:8080"; // Ideally relative or configurable
+const WS_URL = "ws://192.168.60.15:8080"; // Ubuntu VM IP (Bridge Mode)
 
 // --- Initialization ---
 console.log("🚀 SafeSchool Dashboard Initializing...");
@@ -154,7 +154,7 @@ function initJMuxers() {
 }
 
 function discoverBackends() {
-    if (wsClient.isConnected()) wsClient.sendText(0, "ping");
+    if (wsClient.isConnected()) wsClient.sendText(1, "ping");
     setTimeout(discoverBackends, 5000); // Ping loop
 }
 
