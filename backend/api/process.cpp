@@ -4,6 +4,13 @@
 #include <sstream>
 #include <filesystem>
 #include <algorithm>
+#include <iostream>
+#include <cstring>
+#include <vector>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 Process::Process(int pid) { info_.pid = pid; refresh(); }
 
@@ -83,4 +90,54 @@ bool Process::refresh() {
     }
 
     return true;
+}
+
+int Process::spawn(const std::string& cmd) {
+    if (cmd.empty()) return -1;
+
+    // Tokenize command string
+    std::vector<std::string> args;
+    std::string token;
+    std::istringstream tokenStream(cmd);
+    while (tokenStream >> token) {
+        args.push_back(token);
+    }
+
+    if (args.empty()) return -1;
+
+    // Convert to C-style array for execvp
+    std::vector<char*> c_args;
+    for (const auto& arg : args) {
+        c_args.push_back(const_cast<char*>(arg.c_str()));
+    }
+    c_args.push_back(nullptr);
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        return -1; // Fork failed
+    } else if (pid == 0) {
+        // Child process
+        setsid(); // Detach from terminal
+
+        // Redirect standard file descriptors to /dev/null to avoid hanging pipes
+        int dev_null = open("/dev/null", O_RDWR);
+        if (dev_null > 0) {
+            dup2(dev_null, STDIN_FILENO);
+            dup2(dev_null, STDOUT_FILENO);
+            dup2(dev_null, STDERR_FILENO);
+            close(dev_null);
+        }
+
+        // CRITICAL FOR GUI APPS: Set DISPLAY to :0
+        // This ensures apps launched from here appear on the physical screen
+        setenv("DISPLAY", ":0", 1);
+
+        execvp(c_args[0], c_args.data());
+
+        // If execvp returns, it failed
+        exit(1);
+    }
+
+    // Parent process
+    return pid;
 }

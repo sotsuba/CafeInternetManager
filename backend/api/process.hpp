@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <signal.h>
 
@@ -17,9 +17,12 @@ struct ProcessInfo {
 class Process {
 public:
     explicit Process(int pid);
-    Process(const ProcessInfo& info): info_(info) {}; 
+    Process(const ProcessInfo& info): info_(info) {};
     Process(const Process&) = delete;
     Process& operator=(const Process&) = delete;
+
+    // Spawn a new detached process. Returns PID on success, -1 on failure.
+    static int spawn(const std::string& cmd);
 
     ProcessInfo get_info()  const { return info_; }
     int destroy()   { return ::kill(info_.pid, SIGKILL); }

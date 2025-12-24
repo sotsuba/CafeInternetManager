@@ -1,152 +1,182 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cafe Internet Manager</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-GY4cLshL.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DahtRBH3.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SafeSchool - Cyber Monitor</title>
+    <!-- New Styles -->
+    <!-- Global font (optional, using system mono for now) -->
+  <script type="module" crossorigin src="/assets/index-DCjE4RgX.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DamnXQUe.css">
 </head>
 <body>
     <div class="app-container">
-        <aside class="sidebar">
-            <div class="logo-icon">🛡️</div>
-            <nav>
-                <button class="nav-item active" id="navDashboard" title="Computers">
-                    <span class="material-icons">desktop_windows</span>
-                </button>
-                <button class="nav-item" id="navSettings" title="Settings">
-                    <span class="material-icons">settings</span>
-                </button>
-            </nav>
-        </aside>
 
-        <main class="workspace">
-            <div id="viewDashboard" class="view-section active">
-                <header class="top-bar">
-                    <h1 class="page-title">Dashboard</h1>
-                    <button id="addMachineBtn" class="btn btn-primary">
-                        <span class="material-icons">add</span> Add Computer
-                    </button>
-                </header>
-                <div class="dashboard-content">
-                    <div class="tabs">
-                        <button class="tab active">Computers</button>
-                        <button class="tab">Settings</button>
-                    </div>
-                    <div class="machine-grid" id="machineGrid">
-                        </div>
-                </div>
+      <!-- 1. Sidebar -->
+      <aside class="app-sidebar">
+        <h1>Process<span class="text-primary">Guard</span></h1>
+        <div class="client-list" id="client-list">
+          <!-- JS will populate client items here -->
+          <div class="p-4 text-muted text-sm">Waiting for connection...</div>
+        </div>
+        <div class="mt-auto pt-4 border-t border-border">
+          <div class="text-xs text-muted">Team: CyberOps</div>
+          <div class="text-xs text-muted">Topic: Safe Lab Management</div>
+        </div>
+      </aside>
+
+      <!-- 2. Header -->
+      <header class="app-header glass">
+        <div class="flex items-center gap-2">
+          <span class="text-muted">Home</span>
+          <span class="text-muted">/</span>
+          <span id="header-client-name" class="font-bold text-foreground">Overview</span>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-sm" id="btn-theme-toggle" title="Toggle Dark/Light Mode">🌙</button>
+        </div>
+      </header>
+
+      <!-- 3. Main Dashboard -->
+      <main class="app-main" id="main-content">
+        <!-- Default "Home" View -->
+        <div id="view-home" class="flex flex-col items-center justify-center h-full text-muted" style="display: flex; height: 100%; align-items: center; justify-content: center;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🖥️</div>
+            <p>Select a client from the sidebar to manage.</p>
+        </div>
+
+        <!-- Detailed Client Controller View (Hidden by default) -->
+        <div id="view-client" class="dashboard-grid" style="display: none;">
+
+          <!-- Live Monitor Widget -->
+          <div class="widget-card glow-cyan">
+            <div class="widget-header">
+              <span class="widget-title">📺 Live Monitor</span>
+              <div class="flex gap-2">
+                <button class="btn btn-sm" id="btn-stream-screen">Start Stream</button>
+                <button class="btn btn-sm" id="btn-record-screen">Rec (10s)</button>
+                <button class="btn btn-sm" id="btn-fullscreen-screen">⛶</button>
+              </div>
             </div>
+            <div class="video-wrapper scanlines">
+              <video id="monitor-video" autoplay muted></video>
+            </div>
+          </div>
 
-            <div id="viewStream" class="view-section hidden">
-                <header class="stream-top-bar">
-                    <button id="backBtn" class="btn btn-text">
-                        <span class="material-icons">arrow_back</span> Back
-                    </button>
-                    <div class="machine-info">
-                        <h2 id="currentMachineName">Machine Name</h2>
-                        <div class="connection-status">
-                            Connection Status <span class="status-dot" id="connectionDot"></span>
-                        </div>
-                    </div>
-                    <div class="stream-controls">
-                        <button id="btnStart" class="btn-control" title="Webcam stream (reliable)">
-                            <span class="material-icons icon-play">play_circle_filled</span> Stream
-                        </button>
-                        <button id="btnStartScreen" class="btn-control" title="Screen stream (may need permissions)">
-                            <span class="material-icons">desktop_windows</span> Screen
-                        </button>
-                        <button id="btnStop" class="btn-control">
-                            <span class="material-icons icon-stop">stop_circle</span> Stop
-                        </button>
-                        <button id="btnSnap" class="btn-control">
-                            <span class="material-icons icon-snap">camera_alt</span> Snap
-                        </button>
-                        <button id="btnListProc" class="btn-control">
-                            <span class="material-icons">list</span> Procs
-                        </button>
-                    </div>
-                </header>
-                
-                <div class="stream-body">
-                    <div class="stream-player-container">
-                        <canvas id="screenCanvas"></canvas>
-                    </div>
+          <!-- Webcam Widget -->
+          <div class="widget-card glow-green">
+            <div class="widget-header">
+              <span class="widget-title">📸 Surveillance</span>
+              <div class="flex gap-2">
+                <button class="btn btn-sm" id="btn-stream-webcam">Start Cam</button>
+                <button class="btn btn-sm" id="btn-record-webcam">Rec (10s)</button>
+                <button class="btn btn-sm" id="btn-fullscreen-webcam">⛶</button>
+              </div>
+            </div>
+            <div class="video-wrapper">
+              <video id="webcam-video" autoplay muted></video>
+            </div>
+          </div>
 
-                    <div class="message-panel">
-                        <!-- Keylogger Section -->
-                        <div class="keylogger-section">
-                            <div class="section-header">
-                                <h4>⌨️ Keyboard Monitor</h4>
-                                <div class="keylogger-controls">
-                                    <button id="btnStartKeylogger" class="btn-sm btn-success">Start</button>
-                                    <button id="btnStopKeylogger" class="btn-sm btn-danger">Stop</button>
-                                </div>
-                            </div>
-                            <div id="keylogDisplay" class="keylog-display"></div>
-                        </div>
-
-                        <!-- Pattern Detection Section -->
-                        <div class="pattern-section">
-                            <div class="section-header">
-                                <h4>🔍 Pattern Detection</h4>
-                                <div class="pattern-controls">
-                                    <button id="btnAddCommonPatterns" class="btn-sm btn-primary" title="Add email, credit card, phone, IP, URL patterns">Common</button>
-                                    <button id="btnClearPatterns" class="btn-sm btn-secondary">Clear</button>
-                                </div>
-                            </div>
-                            <div class="pattern-input-row">
-                                <input type="text" id="patternName" placeholder="Name" class="pattern-name-input">
-                                <input type="text" id="patternRegex" placeholder="Regex pattern" class="pattern-regex-input">
-                                <button id="btnAddPattern" class="btn-sm btn-success">Add</button>
-                            </div>
-                            <div id="patternMatchDisplay" class="pattern-match-display">
-                                <div class="pattern-placeholder">Pattern matches will appear here...</div>
-                            </div>
-                        </div>
-
-                        <!-- Process Control Section -->
-                        <div class="process-section">
-                            <div class="section-header">
-                                <h4>📋 Process Control</h4>
-                            </div>
-                            <div class="kill-process-row">
-                                <input type="number" id="pidInput" placeholder="PID" class="pid-input">
-                                <button id="btnKillProcess" class="btn-sm btn-danger">Kill</button>
-                            </div>
-                        </div>
-
-                        <!-- System Section -->
-                        <div class="system-section">
-                            <div class="section-header">
-                                <h4>⚙️ System</h4>
-                            </div>
-                            <button id="btnShutdown" class="btn-control btn-shutdown">
-                                <span class="material-icons">power_settings_new</span> Shutdown
-                            </button>
-                        </div>
-
-                        <div class="message-history" id="messageHistory">
-                            </div>
-                        <div class="message-input-area">
-                            <input type="text" id="messageInput" placeholder="Type a message...">
-                            <button id="sendMessageBtn" class="btn-send">
-                                <span class="material-icons">send</span>
-                            </button>
-                        </div>
-                        <div class="message-logs">
-                            <h4>Messages Log</h4>
-                            <ul id="messageLogList">
-                                </ul>
-                        </div>
+          <!-- Application Manager Widget -->
+          <div class="widget-card" style="grid-column: span 2;">
+            <div class="widget-header">
+                <div class="flex items-center gap-2">
+                    <span class="widget-title">🚀 Application Launcher</span>
+                    <input type="text" id="inp-search-apps" placeholder="Search Apps..." class="p-1 text-sm bg-black border border-white/20 rounded max-w-[150px]">
+                    <div class="flex gap-1 ml-4">
+                        <button class="btn btn-sm text-black" style="background-color: var(--neon-cyan);" id="btn-launch-selected">🚀 Launch Selected</button>
+                        <button class="btn btn-sm btn-destructive" id="btn-kill-selected">💀 Kill Selected</button>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+              <table class="task-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;"><input type="checkbox" id="chk-select-all-apps"></th>
+                    <th style="text-align: left;">Application</th>
+                    <th style="width: 100px;">Status</th>
+                    <th style="width: 120px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="app-list-body">
+                  <!-- App rows rendered here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
 
+          <!-- Process Manager Widget -->
+          <div class="widget-card" style="grid-column: span 2;">
+            <div class="widget-header">
+              <span class="widget-title">⚡ Process Manager</span>
+              <div class="flex gap-2">
+                  <div class="flex gap-1">
+                      <input type="text" class="input input-sm" style="width: 150px;" placeholder="Start cmd explicitly..." id="inp-start-proc">
+                      <button class="btn btn-sm" id="btn-start-proc-exec">Start</button>
+                  </div>
+                  <div style="position: relative;">
+                    <input type="text" class="input input-sm" style="width: 150px; padding-right: 30px;" placeholder="Search process..." id="inp-search-proc">
+                    <button id="btn-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-foreground); cursor: pointer; display: none;">✕</button>
+                  </div>
+              </div>
+            </div>
+            <div style="max-height: 200px; overflow-y: auto;">
+              <table class="task-table">
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="chk-select-all-procs"></th>
+                    <th>PID</th>
+                    <th>Name</th>
+                    <th>User</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="process-list-body">
+                  <!-- JS populates rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Security Panel -->
+          <div class="widget-card" style="grid-column: span 2;">
+            <div class="widget-header">
+              <span class="widget-title">🛡️ Security Ops</span>
+            </div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+              <button class="btn btn-destructive" id="btn-kill">💀 Kill Selected</button>
+              <button class="btn btn-destructive" id="btn-restart" style="background-color: var(--neon-yellow); color: black;">🔄 Restart Client</button>
+              <button class="btn btn-destructive" id="btn-shutdown">🛑 Shutdown Client</button>
+            </div>
+            <!-- Keylogger (Placeholder) -->
+            <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                <div class="widget-header" style="margin-bottom: 0.5rem;">
+                    <div class="flex items-center gap-2">
+                        <span class="widget-title">⌨️ Keylogger</span>
+                        <span id="keylog-status" class="text-xs text-muted">Not started</span>
+                    </div>
+                    <div class="flex gap-2">
+                         <button class="btn btn-sm" id="btn-keylog-download" disabled>Download</button>
+                         <button class="btn btn-sm" id="btn-keylog-toggle">Enable Keylogger</button>
+                    </div>
+                </div>
+                <div id="keylog-feed" class="keylog-feed"></div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+
+      <!-- 4. Footer -->
+      <footer class="app-footer">
+        <span id="status-connection" class="text-primary" style="color: var(--primary);">● Connected</span>
+        <span id="status-latency" style="margin-left: 1rem;">Ping: --ms</span>
+        <span style="flex: 1;"></span>
+        <span id="status-message">Ready.</span>
+      </footer>
+
+    </div>
 </body>
 </html>

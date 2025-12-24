@@ -70,6 +70,7 @@
               <div class="flex gap-2">
                 <button class="btn btn-sm" id="btn-stream-webcam">Start Cam</button>
                 <button class="btn btn-sm" id="btn-record-webcam">Rec (10s)</button>
+                <button class="btn btn-sm" id="btn-fullscreen-webcam">⛶</button>
               </div>
             </div>
             <div class="video-wrapper">
@@ -77,13 +78,48 @@
             </div>
           </div>
 
+          <!-- Application Manager Widget -->
+          <div class="widget-card" style="grid-column: span 2;">
+            <div class="widget-header">
+                <div class="flex items-center gap-2">
+                    <span class="widget-title">🚀 Application Launcher</span>
+                    <input type="text" id="inp-search-apps" placeholder="Search Apps..." class="p-1 text-sm bg-black border border-white/20 rounded max-w-[150px]">
+                    <div class="flex gap-1 ml-4">
+                        <button class="btn btn-sm text-black" style="background-color: var(--neon-cyan);" id="btn-launch-selected">🚀 Launch Selected</button>
+                        <button class="btn btn-sm btn-destructive" id="btn-kill-selected">💀 Kill Selected</button>
+                    </div>
+                </div>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+              <table class="task-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;"><input type="checkbox" id="chk-select-all-apps"></th>
+                    <th style="text-align: left;">Application</th>
+                    <th style="width: 100px;">Status</th>
+                    <th style="width: 120px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="app-list-body">
+                  <!-- App rows rendered here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- Process Manager Widget -->
           <div class="widget-card" style="grid-column: span 2;">
             <div class="widget-header">
               <span class="widget-title">⚡ Process Manager</span>
-              <div style="position: relative;">
-                  <input type="text" class="input input-sm" style="width: 200px; padding-right: 30px;" placeholder="Search process..." id="inp-search-proc">
-                  <button id="btn-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-foreground); cursor: pointer; display: none;">✕</button>
+              <div class="flex gap-2">
+                  <div class="flex gap-1">
+                      <input type="text" class="input input-sm" style="width: 150px;" placeholder="Start cmd explicitly..." id="inp-start-proc">
+                      <button class="btn btn-sm" id="btn-start-proc-exec">Start</button>
+                  </div>
+                  <div style="position: relative;">
+                    <input type="text" class="input input-sm" style="width: 150px; padding-right: 30px;" placeholder="Search process..." id="inp-search-proc">
+                    <button id="btn-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-foreground); cursor: pointer; display: none;">✕</button>
+                  </div>
               </div>
             </div>
             <div style="max-height: 200px; overflow-y: auto;">

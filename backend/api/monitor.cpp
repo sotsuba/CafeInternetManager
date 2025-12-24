@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <optional>
 #include <sstream>
 #include <memory>
@@ -20,238 +21,282 @@ enum class CaptureBackend {
     Grim,
     Scrot,
     Import,
-    Wsl,
-    Unknown,
+    Dummy
 };
 
-bool is_wsl() {
-    FILE *fp = std::fopen("/proc/version", "r");
-    if (!fp) return false;
-
-    char buffer[256];
-    bool wsl = false;
-    if (std::fgets(buffer, sizeof(buffer), fp)) {
-        if (std::strstr(buffer, "microsoft") || std::strstr(buffer, "WSL")) {
-            wsl = true;
-        }
-    }
-    std::fclose(fp);
-    return wsl;
+// Dummy JPEG (tiny valid JPEG for fallback)
+void make_dummy_jpeg(std::vector<uint8_t>& out, int width_hint) {
+    (void)width_hint;
+    const uint8_t mini[] = {
+        0xFF,0xD8,0xFF,0xE0,0,16,'J','F','I','F',0,1,1,0,0,1,0,1,0,0,
+        0xFF,0xDB,0,67,0,8,6,6,7,6,5,8,7,7,7,9,9,8,10,12,20,13,12,11,11,12,25,
+        18,19,15,20,29,26,31,30,29,26,28,28,32,36,46,39,32,34,44,35,28,28,40,55,
+        41,44,48,49,52,52,52,31,39,57,61,56,50,60,46,51,52,50,0xFF,0xC0,0,11,8,0,
+        1,0,1,1,1,17,0,0xFF,0xC4,0,20,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0xFF,
+        0xC4,0,20,16,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0xFF,0xDA,0,8,1,1,0,0,63,
+        0,85,95,0xFF,0xD9
+    };
+    out.assign(mini, mini + sizeof(mini));
 }
 
-bool command_exists(const char *cmd) {
-    std::string check = std::string("which ") + cmd + " > /dev/null 2>&1";
-    return std::system(check.c_str()) == 0;
+std::string exec_and_get_output(const std::string& cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    // Fix warning: ignoring attributes on template argument
+    using PcloseLogin = int(*)(FILE*);
+    std::unique_ptr<FILE, PcloseLogin> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (!pipe) return "";
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
 }
 
-CaptureBackend detect_capture_backend() {
-    if (is_wsl()) {
-        return CaptureBackend::Wsl;
-    }
-
-    if (command_exists("grim") && std::getenv("WAYLAND_DISPLAY") != nullptr) {
-        return CaptureBackend::Grim;
-    }
-
-    if (std::getenv("DISPLAY") != nullptr) {
-        if (command_exists("scrot")) return CaptureBackend::Scrot;
-        if (command_exists("import")) return CaptureBackend::Import;
-    }
-
-    return CaptureBackend::Unknown;
-}
-
-std::optional<std::string> detect_hyprland_output() {
-    FILE *fp = popen(
-        "hyprctl monitors -j 2>/dev/null | grep -o '\"name\":\"[^\"]*' | head -1 | cut -d'\"' -f4",
-        "r"
-    );
-    if (!fp) return std::nullopt;
-
-    char output_name[256];
-    std::optional<std::string> out;
-    if (std::fgets(output_name, sizeof(output_name), fp)) {
-        output_name[std::strcspn(output_name, "\n")] = 0;
-        if (std::strlen(output_name) > 0) {
-            out = std::string(output_name);
-        }
-    }
-    pclose(fp);
-    return out;
-}
-
-std::vector<uint8_t> exec_popen(const std::string& cmd) {
-    std::vector<uint8_t> data;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) return {};
-
-    std::array<uint8_t, 4096> buffer;
-    while (true) {
-        size_t bytes = fread(buffer.data(), 1, buffer.size(), pipe);
-        if (bytes > 0) {
-            data.insert(data.end(), buffer.begin(), buffer.begin() + bytes);
-        } else {
-            break;
-        }
-    }
-    pclose(pipe);
-    return data;
-}
-
-class DummyCapturer final : public ICapturer {
+class GrimCapturer : public ICapturer {
 public:
     std::vector<uint8_t> capture() override {
-        std::vector<uint8_t> v(1024);
-        for (size_t i = 0; i < v.size(); ++i) v[i] = static_cast<uint8_t>(i & 0xff);
-        return v;
+        std::string cmd = "grim -t jpeg - 2>/dev/null";
+        FILE* fp = popen(cmd.c_str(), "r");
+        if (!fp) return {};
+
+        std::vector<uint8_t> buf;
+        buf.reserve(1024*1024);
+        uint8_t tmp[4096];
+        while (true) {
+            size_t n = fread(tmp, 1, sizeof(tmp), fp);
+            if (n == 0) break;
+            buf.insert(buf.end(), tmp, tmp + n);
+        }
+        pclose(fp);
+        return buf;
+    }
+
+    std::string name() const override { return "grim"; }
+
+bool is_available() const override {
+        std::string result = exec_and_get_output("which grim 2>/dev/null");
+        return !result.empty();
+    }
+};
+
+class ScrotCapturer : public ICapturer {
+public:
+    std::vector<uint8_t> capture() override {
+        std::string tmpfile = "/tmp/scrot_cap.jpg";
+        std::string cmd = std::string("scrot -o ") + tmpfile + " 2>/dev/null";
+        int ret = system(cmd.c_str());
+        if (ret != 0) return {};
+
+        std::ifstream f(tmpfile, std::ios::binary | std::ios::ate);
+        if (!f) return {};
+        std::streamsize size = f.tellg();
+        f.seekg(0, std::ios::beg);
+
+        std::vector<uint8_t> buf(size);
+        if (!f.read((char*)buf.data(), size)) return {};
+        return buf;
+    }
+
+    std::string name() const override { return "scrot"; }
+
+    bool is_available() const override {
+        std::string result = exec_and_get_output("which scrot 2>/dev/null");
+        return !result.empty();
+    }
+};
+
+class ImportCapturer : public ICapturer {
+public:
+    std::vector<uint8_t> capture() override {
+        std::string tmpfile = "/tmp/import_cap.jpg";
+        std::string cmd = std::string("import -window root -silent ") + tmpfile + " 2>/dev/null";
+        int ret = system(cmd.c_str());
+        if (ret != 0) return {};
+
+        std::ifstream f(tmpfile, std::ios::binary | std::ios::ate);
+        if (!f) return {};
+        std::streamsize size = f.tellg();
+        f.seekg(0, std::ios::beg);
+
+        std::vector<uint8_t> buf(size);
+        if (!f.read((char*)buf.data(), size)) return {};
+        return buf;
+    }
+
+    std::string name() const override { return "import"; }
+
+    bool is_available() const override {
+        std::string result = exec_and_get_output("which import 2>/dev/null");
+        return !result.empty();
+    }
+};
+
+class DummyCapturer : public ICapturer {
+public:
+    std::vector<uint8_t> capture() override {
+        std::vector<uint8_t> dummy;
+        make_dummy_jpeg(dummy, 0);
+        return dummy;
     }
 
     std::string name() const override { return "dummy"; }
     bool is_available() const override { return true; }
 };
 
-class CommandCapturer final : public ICapturer {
-public:
-    CommandCapturer(CaptureBackend backend, float jpeg_scale, int jpeg_quality)
-        : backend_(backend), jpeg_scale_(jpeg_scale), jpeg_quality_(jpeg_quality) {
-        if (backend_ == CaptureBackend::Grim) {
-            hypr_output_ = detect_hyprland_output();
-        }
-    }
-
-    std::vector<uint8_t> capture() override {
-        std::string command;
-        int scale_percent = static_cast<int>(jpeg_scale_ * 100);
-
-        switch (backend_) {
-        case CaptureBackend::Grim:
-            if (hypr_output_) {
-                command = (std::ostringstream{}
-                    << "grim -s " << jpeg_scale_ << " -o " << *hypr_output_
-                    << " -t jpeg -q " << jpeg_quality_ << " -").str();
-            } else {
-                command = (std::ostringstream{}
-                    << "grim -s " << jpeg_scale_ << " -t jpeg -q " << jpeg_quality_
-                    << " -").str();
-            }
-            break;
-
-        case CaptureBackend::Scrot:
-            command = (std::ostringstream{}
-                << "scrot -z -o - | convert - -resize " << scale_percent << "%"
-                << " -quality " << jpeg_quality_ << " jpeg:-").str();
-            break;
-
-        case CaptureBackend::Import:
-            command = (std::ostringstream{}
-                << "import -window root -resize " << scale_percent << "%"
-                << " -quality " << jpeg_quality_ << " jpeg:-").str();
-            break;
-
-        default:
-            return {};
-        }
-
-        command += " 2>/dev/null";
-        return exec_popen(command);
-    }
-
-    std::string name() const override {
-        switch (backend_) {
-        case CaptureBackend::Grim: return "grim (pipe)";
-        case CaptureBackend::Scrot: return "scrot (pipe)";
-        case CaptureBackend::Import: return "import (pipe)";
-        case CaptureBackend::Wsl: return "wsl";
-        case CaptureBackend::Unknown: return "unknown";
-        }
-        return "unknown";
-    }
-
-    bool is_available() const override {
-        switch (backend_) {
-        case CaptureBackend::Grim: return command_exists("grim") && std::getenv("WAYLAND_DISPLAY") != nullptr;
-        case CaptureBackend::Scrot: return command_exists("scrot") && std::getenv("DISPLAY") != nullptr;
-        case CaptureBackend::Import: return command_exists("import") && std::getenv("DISPLAY") != nullptr;
-        default: return false;
-        }
-    }
-
-private:
-    CaptureBackend backend_;
-    float jpeg_scale_;
-    int jpeg_quality_;
-    std::optional<std::string> hypr_output_;
-};
-
-} // namespace
+}  // namespace
 
 std::unique_ptr<ICapturer> create_best_capturer() {
-    constexpr int JPEG_QUALITY = 85;
-    constexpr float JPEG_SCALE = 0.85f;
+    GrimCapturer grim;
+    if (grim.is_available())
+        return std::make_unique<GrimCapturer>();
 
-    CaptureBackend backend = detect_capture_backend();
-    switch (backend) {
-    case CaptureBackend::Grim:
-    case CaptureBackend::Scrot:
-    case CaptureBackend::Import:
-         return std::make_unique<CommandCapturer>(backend, JPEG_SCALE, JPEG_QUALITY);
-    case CaptureBackend::Wsl:
-    case CaptureBackend::Unknown:
-    default:
-        return std::make_unique<DummyCapturer>();
-    }
+    ScrotCapturer scrot;
+    if (scrot.is_available())
+        return std::make_unique<ScrotCapturer>();
+
+    ImportCapturer import;
+    if (import.is_available())
+        return std::make_unique<ImportCapturer>();
+
+    return std::make_unique<DummyCapturer>();
 }
 
-Monitor::Monitor()
-    : recording_(false)
-    , record_fps_(30)
-    , frames_recorded_(0) {
-}
+Monitor::Monitor() : recording_(false), record_fps_(30), frames_recorded_(0) {}
 
 Monitor::~Monitor() {
     stop_recording();
 }
 
 void Monitor::ensure_capturer_() {
+    std::lock_guard<std::mutex> lk(mutex_);
     if (!capturer_) {
         capturer_ = create_best_capturer();
     }
 }
 
 std::vector<uint8_t> Monitor::capture_frame() {
-    std::lock_guard<std::mutex> lock(mutex_);
     ensure_capturer_();
-
+    std::lock_guard<std::mutex> lk(mutex_);
     auto frame = capturer_->capture();
     if (frame.empty()) {
-        last_error_ = "Failed to capture screen";
+        last_error_ = "Failed to capture frame with " + capturer_->name();
     }
     return frame;
 }
 
-// Helper to get X11 screen resolution
-std::string detect_screen_resolution() {
-    FILE *fp = popen("xdpyinfo | grep dimensions | awk '{print $2}'", "r");
-    if (!fp) return "1366x768";
+bool Monitor::start_recording(const std::string& filename, int fps) {
+    {
+        std::lock_guard<std::mutex> lk(mutex_);
+        if (recording_.load()) {
+            last_error_ = "Already recording";
+            return false;
+        }
+        record_filename_ = filename;
+        record_fps_ = fps;
+        frames_recorded_ = 0;
+    }
 
-    char buffer[128];
-    std::string res = "1366x768";
-    if (std::fgets(buffer, sizeof(buffer), fp)) {
-        buffer[std::strcspn(buffer, "\n")] = 0;
-        if (std::strlen(buffer) > 0) {
-            // Ensure dimensions are even (libx264 requirement)
-            int w, h;
-            if (sscanf(buffer, "%dx%d", &w, &h) == 2) {
-                if (w % 2 != 0) w--;
-                if (h % 2 != 0) h--;
-                res = std::to_string(w) + "x" + std::to_string(h);
-            } else {
-                 res = std::string(buffer);
+    recording_.store(true);
+    record_thread_ = std::thread(&Monitor::recording_loop_, this);
+    return true;
+}
+
+void Monitor::stop_recording() {
+    if (!recording_.load()) return;
+    recording_.store(false);
+    if (record_thread_.joinable()) {
+        record_thread_.join();
+    }
+}
+
+bool Monitor::is_recording() const {
+    return recording_.load();
+}
+
+size_t Monitor::frames_recorded() const {
+    return frames_recorded_;
+}
+
+void Monitor::set_frame_callback(FrameCallback cb) {
+    std::lock_guard<std::mutex> lk(mutex_);
+    frame_callback_ = std::move(cb);
+}
+
+std::string Monitor::get_last_error() const {
+    std::lock_guard<std::mutex> lk(mutex_);
+    return last_error_;
+}
+
+std::string Monitor::backend_name() const {
+    std::lock_guard<std::mutex> lk(mutex_);
+    return capturer_ ? capturer_->name() : "none";
+}
+
+void Monitor::recording_loop_() {
+    ensure_capturer_();
+
+    std::ofstream out(record_filename_, std::ios::binary);
+    if (!out) {
+        last_error_ = "Failed to open " + record_filename_;
+        recording_.store(false);
+        return;
+    }
+
+    auto interval = std::chrono::milliseconds(1000 / record_fps_);
+
+    while (recording_.load()) {
+        auto t0 = std::chrono::steady_clock::now();
+
+        auto frame = capture_frame();
+        if (!frame.empty()) {
+            out.write((const char*)frame.data(), frame.size());
+            frames_recorded_++;
+
+            std::lock_guard<std::mutex> lk(mutex_);
+            if (frame_callback_) {
+                frame_callback_(frame);
             }
         }
+
+        auto t1 = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
+        auto sleep_time = interval - elapsed;
+        if (sleep_time.count() > 0) {
+            std::this_thread::sleep_for(sleep_time);
+        }
     }
-    pclose(fp);
-    return res;
+}
+
+// Detect screen resolution
+std::string detect_screen_resolution() {
+    // Try xrandr (Standard X11)
+    std::string cmd = "xrandr 2>/dev/null | grep '*' | awk '{print $1}' | head -n1";
+    FILE* fp = popen(cmd.c_str(), "r");
+    if (fp) {
+        char buffer[256];
+        std::string res;
+        if (fgets(buffer, sizeof(buffer), fp)) {
+            res = buffer;
+            if (!res.empty() && res.back() == '\n') res.pop_back();
+        }
+        pclose(fp);
+        if (!res.empty()) return res;
+    }
+
+    // Try reading sysfs (works on some embedded/framebuffer devices)
+    // /sys/class/graphics/fb0/virtual_size usually "1920,1080"
+    std::ifstream fb("/sys/class/graphics/fb0/virtual_size");
+    if (fb) {
+        std::string line;
+        if (std::getline(fb, line)) {
+            std::replace(line.begin(), line.end(), ',', 'x');
+            return line;
+        }
+    }
+
+    // Fallback safe default
+    std::cerr << "[Monitor] Warning: Could not detect resolution. Defaulting to 1920x1080." << std::endl;
+    return "1920x1080";
 }
 
 // === NEW FFmpeg H.264 Implementation ===
@@ -259,7 +304,7 @@ void Monitor::stream_h264(StreamCallback cb) {
     // Detect actual screen resolution to prevent FFmpeg errors
     std::string resolution = detect_screen_resolution();
 
-    // We use -f mpegts to output a raw stream that jmuxer can read.
+    // We use -f h264 to output raw H.264 stream
     std::string cmd = "ffmpeg -f x11grab -draw_mouse 1 -framerate 30 "
                       "-video_size " + resolution + " -i :0.0 "
                       "-c:v libx264 -preset ultrafast -tune zerolatency -g 30 "
@@ -270,12 +315,10 @@ void Monitor::stream_h264(StreamCallback cb) {
     // Attempt open pipe
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
-        // Fallback: Try smaller resolution or auto detection?
-        // For now just fail.
         return;
     }
 
-    std::vector<uint8_t> buffer(65536); // Reverted to 64KB (User verified this was stable)
+    std::vector<uint8_t> buffer(65536); // 64KB buffer
     while (true) {
         size_t bytes = fread(buffer.data(), 1, buffer.size(), pipe);
         if (bytes > 0) {
@@ -289,72 +332,4 @@ void Monitor::stream_h264(StreamCallback cb) {
         }
     }
     pclose(pipe);
-}
-
-std::string Monitor::backend_name() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!capturer_) return "(uninitialized)";
-    return capturer_->name();
-}
-
-std::string Monitor::get_last_error() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return last_error_;
-}
-
-// ... Recording methods (kept same) ...
-bool Monitor::start_recording(const std::string& filename, int fps) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (recording_) return false;
-
-    ensure_capturer_();
-    record_filename_ = filename;
-    record_fps_ = fps > 0 ? fps : 30;
-    frames_recorded_ = 0;
-    recording_ = true;
-    record_thread_ = std::thread(&Monitor::recording_loop_, this);
-    return true;
-}
-
-void Monitor::stop_recording() {
-    recording_ = false;
-    if (record_thread_.joinable()) record_thread_.join();
-}
-
-bool Monitor::is_recording() const { return recording_; }
-size_t Monitor::frames_recorded() const { return frames_recorded_; }
-
-void Monitor::set_frame_callback(FrameCallback cb) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    frame_callback_ = std::move(cb);
-}
-
-void Monitor::recording_loop_() {
-    std::ofstream out;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        out.open(record_filename_, std::ios::binary | std::ios::trunc);
-        if (!out) { recording_ = false; return; }
-    }
-
-    auto frame_duration = std::chrono::microseconds(1000000 / record_fps_);
-    auto next_frame = std::chrono::steady_clock::now();
-
-    while (recording_) {
-        next_frame += frame_duration;
-        std::vector<uint8_t> frame;
-        FrameCallback cb;
-        {
-            frame = capture_frame();
-            std::lock_guard<std::mutex> lock(mutex_);
-            cb = frame_callback_;
-        }
-        if (!frame.empty()) {
-            out.write(reinterpret_cast<const char*>(frame.data()), frame.size());
-            out.flush();
-            if (cb) cb(frame);
-        }
-        std::this_thread::sleep_until(next_frame);
-    }
-    out.close();
 }
