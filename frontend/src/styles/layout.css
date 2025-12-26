@@ -173,6 +173,9 @@ video {
 .btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
 .btn-primary:hover { opacity: 0.9; }
 .btn-destructive { background: var(--destructive); color: var(--destructive-foreground); border-color: var(--destructive); }
+.btn-warning { background: var(--neon-yellow); color: #000; border-color: var(--neon-yellow); opacity: 0.8; }
+.btn-success { background: var(--neon-green); color: #000; border-color: var(--neon-green); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
 
 .input {

@@ -148,7 +148,7 @@ CMAKE_PROJECT_DESCRIPTION:STATIC=
 CMAKE_PROJECT_HOMEPAGE_URL:STATIC=
 
 //Value Computed by CMake
-CMAKE_PROJECT_NAME:STATIC=CafeInternetManagerBackend
+CMAKE_PROJECT_NAME:STATIC=UniversalAgent
 
 //Path to a program.
 CMAKE_RANLIB:FILEPATH=/usr/bin/ranlib
@@ -216,13 +216,13 @@ CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
 //Value Computed by CMake
-CafeInternetManagerBackend_BINARY_DIR:STATIC=/mnt/hgfs/CafeInternetManager/backend/build
+UniversalAgent_BINARY_DIR:STATIC=/mnt/hgfs/CafeInternetManager/backend/build
 
 //Value Computed by CMake
-CafeInternetManagerBackend_IS_TOP_LEVEL:STATIC=ON
+UniversalAgent_IS_TOP_LEVEL:STATIC=ON
 
 //Value Computed by CMake
-CafeInternetManagerBackend_SOURCE_DIR:STATIC=/mnt/hgfs/CafeInternetManager/backend
+UniversalAgent_SOURCE_DIR:STATIC=/mnt/hgfs/CafeInternetManager/backend
 
 
 ########################
@@ -307,6 +307,8 @@ CMAKE_GENERATOR_INSTANCE:INTERNAL=
 CMAKE_GENERATOR_PLATFORM:INTERNAL=
 //Name of generator toolset.
 CMAKE_GENERATOR_TOOLSET:INTERNAL=
+//Test CMAKE_HAVE_LIBC_PTHREAD
+CMAKE_HAVE_LIBC_PTHREAD:INTERNAL=1
 //Source directory with the top level CMakeLists.txt file for this
 // project
 CMAKE_HOME_DIRECTORY:INTERNAL=/mnt/hgfs/CafeInternetManager/backend
@@ -374,6 +376,8 @@ CMAKE_TAPI-ADVANCED:INTERNAL=1
 CMAKE_UNAME:INTERNAL=/usr/bin/uname
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+//Details about finding Threads
+FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 //linker supports push/pop state
 _CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE
 

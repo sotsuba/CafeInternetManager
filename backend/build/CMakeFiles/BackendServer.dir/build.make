@@ -69,175 +69,33 @@ include CMakeFiles/BackendServer.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/BackendServer.dir/flags.make
 
-CMakeFiles/BackendServer.dir/api/application.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/application.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/application.cpp
-CMakeFiles/BackendServer.dir/api/application.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/BackendServer.dir/api/application.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/application.cpp.o -MF CMakeFiles/BackendServer.dir/api/application.cpp.o.d -o CMakeFiles/BackendServer.dir/api/application.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/application.cpp
+CMakeFiles/BackendServer.dir/src/main.cpp.o: CMakeFiles/BackendServer.dir/flags.make
+CMakeFiles/BackendServer.dir/src/main.cpp.o: /mnt/hgfs/CafeInternetManager/backend/src/main.cpp
+CMakeFiles/BackendServer.dir/src/main.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/BackendServer.dir/src/main.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/src/main.cpp.o -MF CMakeFiles/BackendServer.dir/src/main.cpp.o.d -o CMakeFiles/BackendServer.dir/src/main.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/src/main.cpp
 
-CMakeFiles/BackendServer.dir/api/application.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/application.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/application.cpp > CMakeFiles/BackendServer.dir/api/application.cpp.i
+CMakeFiles/BackendServer.dir/src/main.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/src/main.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/src/main.cpp > CMakeFiles/BackendServer.dir/src/main.cpp.i
 
-CMakeFiles/BackendServer.dir/api/application.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/application.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/application.cpp -o CMakeFiles/BackendServer.dir/api/application.cpp.s
-
-CMakeFiles/BackendServer.dir/api/keylogger.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/keylogger.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/keylogger.cpp
-CMakeFiles/BackendServer.dir/api/keylogger.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/BackendServer.dir/api/keylogger.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/keylogger.cpp.o -MF CMakeFiles/BackendServer.dir/api/keylogger.cpp.o.d -o CMakeFiles/BackendServer.dir/api/keylogger.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/keylogger.cpp
-
-CMakeFiles/BackendServer.dir/api/keylogger.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/keylogger.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/keylogger.cpp > CMakeFiles/BackendServer.dir/api/keylogger.cpp.i
-
-CMakeFiles/BackendServer.dir/api/keylogger.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/keylogger.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/keylogger.cpp -o CMakeFiles/BackendServer.dir/api/keylogger.cpp.s
-
-CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/keylogger_find.cpp
-CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o -MF CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o.d -o CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/keylogger_find.cpp
-
-CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/keylogger_find.cpp > CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.i
-
-CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/keylogger_find.cpp -o CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.s
-
-CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/keylogger_lifecycle.cpp
-CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o -MF CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o.d -o CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/keylogger_lifecycle.cpp
-
-CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/keylogger_lifecycle.cpp > CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.i
-
-CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/keylogger_lifecycle.cpp -o CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.s
-
-CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/keylogger_utils.cpp
-CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o -MF CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o.d -o CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/keylogger_utils.cpp
-
-CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/keylogger_utils.cpp > CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.i
-
-CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/keylogger_utils.cpp -o CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.s
-
-CMakeFiles/BackendServer.dir/api/monitor.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/monitor.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/monitor.cpp
-CMakeFiles/BackendServer.dir/api/monitor.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/BackendServer.dir/api/monitor.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/monitor.cpp.o -MF CMakeFiles/BackendServer.dir/api/monitor.cpp.o.d -o CMakeFiles/BackendServer.dir/api/monitor.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/monitor.cpp
-
-CMakeFiles/BackendServer.dir/api/monitor.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/monitor.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/monitor.cpp > CMakeFiles/BackendServer.dir/api/monitor.cpp.i
-
-CMakeFiles/BackendServer.dir/api/monitor.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/monitor.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/monitor.cpp -o CMakeFiles/BackendServer.dir/api/monitor.cpp.s
-
-CMakeFiles/BackendServer.dir/api/process.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/process.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/process.cpp
-CMakeFiles/BackendServer.dir/api/process.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/BackendServer.dir/api/process.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/process.cpp.o -MF CMakeFiles/BackendServer.dir/api/process.cpp.o.d -o CMakeFiles/BackendServer.dir/api/process.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/process.cpp
-
-CMakeFiles/BackendServer.dir/api/process.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/process.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/process.cpp > CMakeFiles/BackendServer.dir/api/process.cpp.i
-
-CMakeFiles/BackendServer.dir/api/process.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/process.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/process.cpp -o CMakeFiles/BackendServer.dir/api/process.cpp.s
-
-CMakeFiles/BackendServer.dir/api/webcam.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/api/webcam.cpp.o: /mnt/hgfs/CafeInternetManager/backend/api/webcam.cpp
-CMakeFiles/BackendServer.dir/api/webcam.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/BackendServer.dir/api/webcam.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/api/webcam.cpp.o -MF CMakeFiles/BackendServer.dir/api/webcam.cpp.o.d -o CMakeFiles/BackendServer.dir/api/webcam.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/api/webcam.cpp
-
-CMakeFiles/BackendServer.dir/api/webcam.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/api/webcam.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/api/webcam.cpp > CMakeFiles/BackendServer.dir/api/webcam.cpp.i
-
-CMakeFiles/BackendServer.dir/api/webcam.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/api/webcam.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/api/webcam.cpp -o CMakeFiles/BackendServer.dir/api/webcam.cpp.s
-
-CMakeFiles/BackendServer.dir/main.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/main.cpp.o: /mnt/hgfs/CafeInternetManager/backend/main.cpp
-CMakeFiles/BackendServer.dir/main.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/BackendServer.dir/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/main.cpp.o -MF CMakeFiles/BackendServer.dir/main.cpp.o.d -o CMakeFiles/BackendServer.dir/main.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/main.cpp
-
-CMakeFiles/BackendServer.dir/main.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/main.cpp > CMakeFiles/BackendServer.dir/main.cpp.i
-
-CMakeFiles/BackendServer.dir/main.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/main.cpp -o CMakeFiles/BackendServer.dir/main.cpp.s
-
-CMakeFiles/BackendServer.dir/net/backend_server.cpp.o: CMakeFiles/BackendServer.dir/flags.make
-CMakeFiles/BackendServer.dir/net/backend_server.cpp.o: /mnt/hgfs/CafeInternetManager/backend/net/backend_server.cpp
-CMakeFiles/BackendServer.dir/net/backend_server.cpp.o: CMakeFiles/BackendServer.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/BackendServer.dir/net/backend_server.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/BackendServer.dir/net/backend_server.cpp.o -MF CMakeFiles/BackendServer.dir/net/backend_server.cpp.o.d -o CMakeFiles/BackendServer.dir/net/backend_server.cpp.o -c /mnt/hgfs/CafeInternetManager/backend/net/backend_server.cpp
-
-CMakeFiles/BackendServer.dir/net/backend_server.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/BackendServer.dir/net/backend_server.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/hgfs/CafeInternetManager/backend/net/backend_server.cpp > CMakeFiles/BackendServer.dir/net/backend_server.cpp.i
-
-CMakeFiles/BackendServer.dir/net/backend_server.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/net/backend_server.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/net/backend_server.cpp -o CMakeFiles/BackendServer.dir/net/backend_server.cpp.s
+CMakeFiles/BackendServer.dir/src/main.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/BackendServer.dir/src/main.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/hgfs/CafeInternetManager/backend/src/main.cpp -o CMakeFiles/BackendServer.dir/src/main.cpp.s
 
 # Object files for target BackendServer
 BackendServer_OBJECTS = \
-"CMakeFiles/BackendServer.dir/api/application.cpp.o" \
-"CMakeFiles/BackendServer.dir/api/keylogger.cpp.o" \
-"CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o" \
-"CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o" \
-"CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o" \
-"CMakeFiles/BackendServer.dir/api/monitor.cpp.o" \
-"CMakeFiles/BackendServer.dir/api/process.cpp.o" \
-"CMakeFiles/BackendServer.dir/api/webcam.cpp.o" \
-"CMakeFiles/BackendServer.dir/main.cpp.o" \
-"CMakeFiles/BackendServer.dir/net/backend_server.cpp.o"
+"CMakeFiles/BackendServer.dir/src/main.cpp.o"
 
 # External object files for target BackendServer
 BackendServer_EXTERNAL_OBJECTS =
 
-BackendServer: CMakeFiles/BackendServer.dir/api/application.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/api/keylogger.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/api/monitor.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/api/process.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/api/webcam.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/main.cpp.o
-BackendServer: CMakeFiles/BackendServer.dir/net/backend_server.cpp.o
+BackendServer: CMakeFiles/BackendServer.dir/src/main.cpp.o
 BackendServer: CMakeFiles/BackendServer.dir/build.make
+BackendServer: libbackend_core.a
+BackendServer: libbackend_hal.a
 BackendServer: CMakeFiles/BackendServer.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking CXX executable BackendServer"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable BackendServer"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/BackendServer.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

@@ -63,6 +63,8 @@ CMAKE_BINARY_DIR = /mnt/hgfs/CafeInternetManager/backend/build
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
+all: CMakeFiles/backend_core.dir/all
+all: CMakeFiles/backend_hal.dir/all
 all: CMakeFiles/BackendServer.dir/all
 .PHONY : all
 
@@ -71,22 +73,77 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
+clean: CMakeFiles/backend_core.dir/clean
+clean: CMakeFiles/backend_hal.dir/clean
 clean: CMakeFiles/BackendServer.dir/clean
 .PHONY : clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/backend_core.dir
+
+# All Build rule for target.
+CMakeFiles/backend_core.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=3,4,5,6,7,8 "Built target backend_core"
+.PHONY : CMakeFiles/backend_core.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/backend_core.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles 6
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/backend_core.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles 0
+.PHONY : CMakeFiles/backend_core.dir/rule
+
+# Convenience name for target.
+backend_core: CMakeFiles/backend_core.dir/rule
+.PHONY : backend_core
+
+# clean rule for target.
+CMakeFiles/backend_core.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/clean
+.PHONY : CMakeFiles/backend_core.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/backend_hal.dir
+
+# All Build rule for target.
+CMakeFiles/backend_hal.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=9,10,11,12,13 "Built target backend_hal"
+.PHONY : CMakeFiles/backend_hal.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/backend_hal.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles 5
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/backend_hal.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles 0
+.PHONY : CMakeFiles/backend_hal.dir/rule
+
+# Convenience name for target.
+backend_hal: CMakeFiles/backend_hal.dir/rule
+.PHONY : backend_hal
+
+# clean rule for target.
+CMakeFiles/backend_hal.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/clean
+.PHONY : CMakeFiles/backend_hal.dir/clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/BackendServer.dir
 
 # All Build rule for target.
-CMakeFiles/BackendServer.dir/all:
+CMakeFiles/BackendServer.dir/all: CMakeFiles/backend_core.dir/all
+CMakeFiles/BackendServer.dir/all: CMakeFiles/backend_hal.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11 "Built target BackendServer"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles --progress-num=1,2 "Built target BackendServer"
 .PHONY : CMakeFiles/BackendServer.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/BackendServer.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles 11
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles 13
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/BackendServer.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles 0
 .PHONY : CMakeFiles/BackendServer.dir/rule

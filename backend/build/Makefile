@@ -117,6 +117,32 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named backend_core
+
+# Build rule for target.
+backend_core: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 backend_core
+.PHONY : backend_core
+
+# fast build rule for target.
+backend_core/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/build
+.PHONY : backend_core/fast
+
+#=============================================================================
+# Target rules for targets named backend_hal
+
+# Build rule for target.
+backend_hal: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 backend_hal
+.PHONY : backend_hal
+
+# fast build rule for target.
+backend_hal/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/build
+.PHONY : backend_hal/fast
+
+#=============================================================================
 # Target rules for targets named BackendServer
 
 # Build rule for target.
@@ -129,245 +155,245 @@ BackendServer/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/build
 .PHONY : BackendServer/fast
 
-api/application.o: api/application.cpp.o
-.PHONY : api/application.o
+src/core/BackendServer.o: src/core/BackendServer.cpp.o
+.PHONY : src/core/BackendServer.o
 
 # target to build an object file
-api/application.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/application.cpp.o
-.PHONY : api/application.cpp.o
+src/core/BackendServer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.o
+.PHONY : src/core/BackendServer.cpp.o
 
-api/application.i: api/application.cpp.i
-.PHONY : api/application.i
+src/core/BackendServer.i: src/core/BackendServer.cpp.i
+.PHONY : src/core/BackendServer.i
 
 # target to preprocess a source file
-api/application.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/application.cpp.i
-.PHONY : api/application.cpp.i
+src/core/BackendServer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.i
+.PHONY : src/core/BackendServer.cpp.i
 
-api/application.s: api/application.cpp.s
-.PHONY : api/application.s
+src/core/BackendServer.s: src/core/BackendServer.cpp.s
+.PHONY : src/core/BackendServer.s
 
 # target to generate assembly for a file
-api/application.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/application.cpp.s
-.PHONY : api/application.cpp.s
+src/core/BackendServer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.s
+.PHONY : src/core/BackendServer.cpp.s
 
-api/keylogger.o: api/keylogger.cpp.o
-.PHONY : api/keylogger.o
+src/core/BroadcastBus.o: src/core/BroadcastBus.cpp.o
+.PHONY : src/core/BroadcastBus.o
 
 # target to build an object file
-api/keylogger.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger.cpp.o
-.PHONY : api/keylogger.cpp.o
+src/core/BroadcastBus.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.o
+.PHONY : src/core/BroadcastBus.cpp.o
 
-api/keylogger.i: api/keylogger.cpp.i
-.PHONY : api/keylogger.i
+src/core/BroadcastBus.i: src/core/BroadcastBus.cpp.i
+.PHONY : src/core/BroadcastBus.i
 
 # target to preprocess a source file
-api/keylogger.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger.cpp.i
-.PHONY : api/keylogger.cpp.i
+src/core/BroadcastBus.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.i
+.PHONY : src/core/BroadcastBus.cpp.i
 
-api/keylogger.s: api/keylogger.cpp.s
-.PHONY : api/keylogger.s
+src/core/BroadcastBus.s: src/core/BroadcastBus.cpp.s
+.PHONY : src/core/BroadcastBus.s
 
 # target to generate assembly for a file
-api/keylogger.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger.cpp.s
-.PHONY : api/keylogger.cpp.s
+src/core/BroadcastBus.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.s
+.PHONY : src/core/BroadcastBus.cpp.s
 
-api/keylogger_find.o: api/keylogger_find.cpp.o
-.PHONY : api/keylogger_find.o
+src/core/StreamSession.o: src/core/StreamSession.cpp.o
+.PHONY : src/core/StreamSession.o
 
 # target to build an object file
-api/keylogger_find.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.o
-.PHONY : api/keylogger_find.cpp.o
+src/core/StreamSession.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/StreamSession.cpp.o
+.PHONY : src/core/StreamSession.cpp.o
 
-api/keylogger_find.i: api/keylogger_find.cpp.i
-.PHONY : api/keylogger_find.i
+src/core/StreamSession.i: src/core/StreamSession.cpp.i
+.PHONY : src/core/StreamSession.i
 
 # target to preprocess a source file
-api/keylogger_find.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.i
-.PHONY : api/keylogger_find.cpp.i
+src/core/StreamSession.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/StreamSession.cpp.i
+.PHONY : src/core/StreamSession.cpp.i
 
-api/keylogger_find.s: api/keylogger_find.cpp.s
-.PHONY : api/keylogger_find.s
+src/core/StreamSession.s: src/core/StreamSession.cpp.s
+.PHONY : src/core/StreamSession.s
 
 # target to generate assembly for a file
-api/keylogger_find.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_find.cpp.s
-.PHONY : api/keylogger_find.cpp.s
+src/core/StreamSession.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/StreamSession.cpp.s
+.PHONY : src/core/StreamSession.cpp.s
 
-api/keylogger_lifecycle.o: api/keylogger_lifecycle.cpp.o
-.PHONY : api/keylogger_lifecycle.o
+src/core/network/PacketDispatcher.o: src/core/network/PacketDispatcher.cpp.o
+.PHONY : src/core/network/PacketDispatcher.o
 
 # target to build an object file
-api/keylogger_lifecycle.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.o
-.PHONY : api/keylogger_lifecycle.cpp.o
+src/core/network/PacketDispatcher.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.o
+.PHONY : src/core/network/PacketDispatcher.cpp.o
 
-api/keylogger_lifecycle.i: api/keylogger_lifecycle.cpp.i
-.PHONY : api/keylogger_lifecycle.i
+src/core/network/PacketDispatcher.i: src/core/network/PacketDispatcher.cpp.i
+.PHONY : src/core/network/PacketDispatcher.i
 
 # target to preprocess a source file
-api/keylogger_lifecycle.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.i
-.PHONY : api/keylogger_lifecycle.cpp.i
+src/core/network/PacketDispatcher.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.i
+.PHONY : src/core/network/PacketDispatcher.cpp.i
 
-api/keylogger_lifecycle.s: api/keylogger_lifecycle.cpp.s
-.PHONY : api/keylogger_lifecycle.s
+src/core/network/PacketDispatcher.s: src/core/network/PacketDispatcher.cpp.s
+.PHONY : src/core/network/PacketDispatcher.s
 
 # target to generate assembly for a file
-api/keylogger_lifecycle.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_lifecycle.cpp.s
-.PHONY : api/keylogger_lifecycle.cpp.s
+src/core/network/PacketDispatcher.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.s
+.PHONY : src/core/network/PacketDispatcher.cpp.s
 
-api/keylogger_utils.o: api/keylogger_utils.cpp.o
-.PHONY : api/keylogger_utils.o
+src/core/network/TcpSocket.o: src/core/network/TcpSocket.cpp.o
+.PHONY : src/core/network/TcpSocket.o
 
 # target to build an object file
-api/keylogger_utils.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.o
-.PHONY : api/keylogger_utils.cpp.o
+src/core/network/TcpSocket.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.o
+.PHONY : src/core/network/TcpSocket.cpp.o
 
-api/keylogger_utils.i: api/keylogger_utils.cpp.i
-.PHONY : api/keylogger_utils.i
+src/core/network/TcpSocket.i: src/core/network/TcpSocket.cpp.i
+.PHONY : src/core/network/TcpSocket.i
 
 # target to preprocess a source file
-api/keylogger_utils.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.i
-.PHONY : api/keylogger_utils.cpp.i
+src/core/network/TcpSocket.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.i
+.PHONY : src/core/network/TcpSocket.cpp.i
 
-api/keylogger_utils.s: api/keylogger_utils.cpp.s
-.PHONY : api/keylogger_utils.s
+src/core/network/TcpSocket.s: src/core/network/TcpSocket.cpp.s
+.PHONY : src/core/network/TcpSocket.s
 
 # target to generate assembly for a file
-api/keylogger_utils.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/keylogger_utils.cpp.s
-.PHONY : api/keylogger_utils.cpp.s
+src/core/network/TcpSocket.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_core.dir/build.make CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.s
+.PHONY : src/core/network/TcpSocket.cpp.s
 
-api/monitor.o: api/monitor.cpp.o
-.PHONY : api/monitor.o
+src/main.o: src/main.cpp.o
+.PHONY : src/main.o
 
 # target to build an object file
-api/monitor.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/monitor.cpp.o
-.PHONY : api/monitor.cpp.o
+src/main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/src/main.cpp.o
+.PHONY : src/main.cpp.o
 
-api/monitor.i: api/monitor.cpp.i
-.PHONY : api/monitor.i
+src/main.i: src/main.cpp.i
+.PHONY : src/main.i
 
 # target to preprocess a source file
-api/monitor.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/monitor.cpp.i
-.PHONY : api/monitor.cpp.i
+src/main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/src/main.cpp.i
+.PHONY : src/main.cpp.i
 
-api/monitor.s: api/monitor.cpp.s
-.PHONY : api/monitor.s
+src/main.s: src/main.cpp.s
+.PHONY : src/main.s
 
 # target to generate assembly for a file
-api/monitor.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/monitor.cpp.s
-.PHONY : api/monitor.cpp.s
+src/main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/src/main.cpp.s
+.PHONY : src/main.cpp.s
 
-api/process.o: api/process.cpp.o
-.PHONY : api/process.o
+src/platform/linux/LinuxAppManager.o: src/platform/linux/LinuxAppManager.cpp.o
+.PHONY : src/platform/linux/LinuxAppManager.o
 
 # target to build an object file
-api/process.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/process.cpp.o
-.PHONY : api/process.cpp.o
+src/platform/linux/LinuxAppManager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxAppManager.cpp.o
+.PHONY : src/platform/linux/LinuxAppManager.cpp.o
 
-api/process.i: api/process.cpp.i
-.PHONY : api/process.i
+src/platform/linux/LinuxAppManager.i: src/platform/linux/LinuxAppManager.cpp.i
+.PHONY : src/platform/linux/LinuxAppManager.i
 
 # target to preprocess a source file
-api/process.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/process.cpp.i
-.PHONY : api/process.cpp.i
+src/platform/linux/LinuxAppManager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxAppManager.cpp.i
+.PHONY : src/platform/linux/LinuxAppManager.cpp.i
 
-api/process.s: api/process.cpp.s
-.PHONY : api/process.s
+src/platform/linux/LinuxAppManager.s: src/platform/linux/LinuxAppManager.cpp.s
+.PHONY : src/platform/linux/LinuxAppManager.s
 
 # target to generate assembly for a file
-api/process.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/process.cpp.s
-.PHONY : api/process.cpp.s
+src/platform/linux/LinuxAppManager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxAppManager.cpp.s
+.PHONY : src/platform/linux/LinuxAppManager.cpp.s
 
-api/webcam.o: api/webcam.cpp.o
-.PHONY : api/webcam.o
+src/platform/linux/LinuxEvdevLogger.o: src/platform/linux/LinuxEvdevLogger.cpp.o
+.PHONY : src/platform/linux/LinuxEvdevLogger.o
 
 # target to build an object file
-api/webcam.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/webcam.cpp.o
-.PHONY : api/webcam.cpp.o
+src/platform/linux/LinuxEvdevLogger.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.o
+.PHONY : src/platform/linux/LinuxEvdevLogger.cpp.o
 
-api/webcam.i: api/webcam.cpp.i
-.PHONY : api/webcam.i
+src/platform/linux/LinuxEvdevLogger.i: src/platform/linux/LinuxEvdevLogger.cpp.i
+.PHONY : src/platform/linux/LinuxEvdevLogger.i
 
 # target to preprocess a source file
-api/webcam.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/webcam.cpp.i
-.PHONY : api/webcam.cpp.i
+src/platform/linux/LinuxEvdevLogger.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.i
+.PHONY : src/platform/linux/LinuxEvdevLogger.cpp.i
 
-api/webcam.s: api/webcam.cpp.s
-.PHONY : api/webcam.s
+src/platform/linux/LinuxEvdevLogger.s: src/platform/linux/LinuxEvdevLogger.cpp.s
+.PHONY : src/platform/linux/LinuxEvdevLogger.s
 
 # target to generate assembly for a file
-api/webcam.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/api/webcam.cpp.s
-.PHONY : api/webcam.cpp.s
+src/platform/linux/LinuxEvdevLogger.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.s
+.PHONY : src/platform/linux/LinuxEvdevLogger.cpp.s
 
-main.o: main.cpp.o
-.PHONY : main.o
+src/platform/linux/LinuxWebcamStreamer.o: src/platform/linux/LinuxWebcamStreamer.cpp.o
+.PHONY : src/platform/linux/LinuxWebcamStreamer.o
 
 # target to build an object file
-main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/main.cpp.o
-.PHONY : main.cpp.o
+src/platform/linux/LinuxWebcamStreamer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxWebcamStreamer.cpp.o
+.PHONY : src/platform/linux/LinuxWebcamStreamer.cpp.o
 
-main.i: main.cpp.i
-.PHONY : main.i
+src/platform/linux/LinuxWebcamStreamer.i: src/platform/linux/LinuxWebcamStreamer.cpp.i
+.PHONY : src/platform/linux/LinuxWebcamStreamer.i
 
 # target to preprocess a source file
-main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/main.cpp.i
-.PHONY : main.cpp.i
+src/platform/linux/LinuxWebcamStreamer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxWebcamStreamer.cpp.i
+.PHONY : src/platform/linux/LinuxWebcamStreamer.cpp.i
 
-main.s: main.cpp.s
-.PHONY : main.s
+src/platform/linux/LinuxWebcamStreamer.s: src/platform/linux/LinuxWebcamStreamer.cpp.s
+.PHONY : src/platform/linux/LinuxWebcamStreamer.s
 
 # target to generate assembly for a file
-main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/main.cpp.s
-.PHONY : main.cpp.s
+src/platform/linux/LinuxWebcamStreamer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxWebcamStreamer.cpp.s
+.PHONY : src/platform/linux/LinuxWebcamStreamer.cpp.s
 
-net/backend_server.o: net/backend_server.cpp.o
-.PHONY : net/backend_server.o
+src/platform/linux/LinuxX11Streamer.o: src/platform/linux/LinuxX11Streamer.cpp.o
+.PHONY : src/platform/linux/LinuxX11Streamer.o
 
 # target to build an object file
-net/backend_server.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/net/backend_server.cpp.o
-.PHONY : net/backend_server.cpp.o
+src/platform/linux/LinuxX11Streamer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxX11Streamer.cpp.o
+.PHONY : src/platform/linux/LinuxX11Streamer.cpp.o
 
-net/backend_server.i: net/backend_server.cpp.i
-.PHONY : net/backend_server.i
+src/platform/linux/LinuxX11Streamer.i: src/platform/linux/LinuxX11Streamer.cpp.i
+.PHONY : src/platform/linux/LinuxX11Streamer.i
 
 # target to preprocess a source file
-net/backend_server.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/net/backend_server.cpp.i
-.PHONY : net/backend_server.cpp.i
+src/platform/linux/LinuxX11Streamer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxX11Streamer.cpp.i
+.PHONY : src/platform/linux/LinuxX11Streamer.cpp.i
 
-net/backend_server.s: net/backend_server.cpp.s
-.PHONY : net/backend_server.s
+src/platform/linux/LinuxX11Streamer.s: src/platform/linux/LinuxX11Streamer.cpp.s
+.PHONY : src/platform/linux/LinuxX11Streamer.s
 
 # target to generate assembly for a file
-net/backend_server.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/BackendServer.dir/build.make CMakeFiles/BackendServer.dir/net/backend_server.cpp.s
-.PHONY : net/backend_server.cpp.s
+src/platform/linux/LinuxX11Streamer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/backend_hal.dir/build.make CMakeFiles/backend_hal.dir/src/platform/linux/LinuxX11Streamer.cpp.s
+.PHONY : src/platform/linux/LinuxX11Streamer.cpp.s
 
 # Help Target
 help:
@@ -378,36 +404,38 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... BackendServer"
-	@echo "... api/application.o"
-	@echo "... api/application.i"
-	@echo "... api/application.s"
-	@echo "... api/keylogger.o"
-	@echo "... api/keylogger.i"
-	@echo "... api/keylogger.s"
-	@echo "... api/keylogger_find.o"
-	@echo "... api/keylogger_find.i"
-	@echo "... api/keylogger_find.s"
-	@echo "... api/keylogger_lifecycle.o"
-	@echo "... api/keylogger_lifecycle.i"
-	@echo "... api/keylogger_lifecycle.s"
-	@echo "... api/keylogger_utils.o"
-	@echo "... api/keylogger_utils.i"
-	@echo "... api/keylogger_utils.s"
-	@echo "... api/monitor.o"
-	@echo "... api/monitor.i"
-	@echo "... api/monitor.s"
-	@echo "... api/process.o"
-	@echo "... api/process.i"
-	@echo "... api/process.s"
-	@echo "... api/webcam.o"
-	@echo "... api/webcam.i"
-	@echo "... api/webcam.s"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
-	@echo "... net/backend_server.o"
-	@echo "... net/backend_server.i"
-	@echo "... net/backend_server.s"
+	@echo "... backend_core"
+	@echo "... backend_hal"
+	@echo "... src/core/BackendServer.o"
+	@echo "... src/core/BackendServer.i"
+	@echo "... src/core/BackendServer.s"
+	@echo "... src/core/BroadcastBus.o"
+	@echo "... src/core/BroadcastBus.i"
+	@echo "... src/core/BroadcastBus.s"
+	@echo "... src/core/StreamSession.o"
+	@echo "... src/core/StreamSession.i"
+	@echo "... src/core/StreamSession.s"
+	@echo "... src/core/network/PacketDispatcher.o"
+	@echo "... src/core/network/PacketDispatcher.i"
+	@echo "... src/core/network/PacketDispatcher.s"
+	@echo "... src/core/network/TcpSocket.o"
+	@echo "... src/core/network/TcpSocket.i"
+	@echo "... src/core/network/TcpSocket.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
+	@echo "... src/platform/linux/LinuxAppManager.o"
+	@echo "... src/platform/linux/LinuxAppManager.i"
+	@echo "... src/platform/linux/LinuxAppManager.s"
+	@echo "... src/platform/linux/LinuxEvdevLogger.o"
+	@echo "... src/platform/linux/LinuxEvdevLogger.i"
+	@echo "... src/platform/linux/LinuxEvdevLogger.s"
+	@echo "... src/platform/linux/LinuxWebcamStreamer.o"
+	@echo "... src/platform/linux/LinuxWebcamStreamer.i"
+	@echo "... src/platform/linux/LinuxWebcamStreamer.s"
+	@echo "... src/platform/linux/LinuxX11Streamer.o"
+	@echo "... src/platform/linux/LinuxX11Streamer.i"
+	@echo "... src/platform/linux/LinuxX11Streamer.s"
 .PHONY : help
 
 

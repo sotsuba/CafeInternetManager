@@ -1,0 +1,2 @@
+/usr/bin/ar qc libbackend_hal.a CMakeFiles/backend_hal.dir/src/platform/linux/LinuxX11Streamer.cpp.o CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.o CMakeFiles/backend_hal.dir/src/platform/linux/LinuxAppManager.cpp.o CMakeFiles/backend_hal.dir/src/platform/linux/LinuxWebcamStreamer.cpp.o
+/usr/bin/ranlib libbackend_hal.a

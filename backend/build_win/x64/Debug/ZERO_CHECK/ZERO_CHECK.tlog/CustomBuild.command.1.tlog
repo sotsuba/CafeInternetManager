@@ -1,0 +1,10 @@
+^D:\CAFEINTERNETMANAGER\BACKEND\BUILD_WIN\CMAKEFILES\BB33D6C9BE8C4EC617082ECC1D1DD025\GENERATE.STAMP.RULE
+setlocal
+E:\bin\cmake.exe -SD:/CafeInternetManager/backend -BD:/CafeInternetManager/backend/build_win --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/CafeInternetManager/backend/build_win/UniversalAgent.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
