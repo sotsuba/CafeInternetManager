@@ -1,5 +1,7 @@
 // @ts-ignore
 import JMuxer from "jmuxer";
+import { FileManager, type FileEntry } from "./ui/file-manager";
+import { InputHandler } from "./ui/input-handler";
 import { GatewayWsClient } from "./ws/client";
 
 // --- State ---
@@ -51,6 +53,10 @@ let currentAppList: AppInfo[] = [];
 let processSearchTerm: string = "";
 let processAutoRefreshInterval: any = null;
 
+// New Modules
+let fileManager: FileManager | null = null;
+let inputHandler: InputHandler | null = null;
+
 // --- DOM Elements ---
 const elClientList = document.getElementById("client-list")!;
 // const elMainContent = document.getElementById("main-content")!;
@@ -76,7 +82,7 @@ const elProcessListBody = document.getElementById("process-list-body")!;
 const chkSelectAll = document.getElementById("chk-select-all-procs") as HTMLInputElement;
 
 // --- Config ---
-const WS_URL = "ws://localhost:8080"; // Gateway on Windows Docker
+const WS_URL = "ws://localhost:8881"; // Gateway on Windows Docker
 
 // --- Initialization ---
 console.log("🚀 SafeSchool Dashboard Initializing...");
@@ -281,6 +287,21 @@ function setActiveClient(id: number | null) {
     // Get main video elements (always visible in UI)
     const mainMonitorVideo = document.getElementById("monitor-video") as HTMLVideoElement;
     const mainWebcamVideo = document.getElementById("webcam-video") as HTMLVideoElement;
+
+    // Update Input Handler
+    if (inputHandler) {
+        inputHandler.setBackendId(id || 0);
+    }
+
+    // Reset File Manager
+    if (fileManager) {
+        // Clear or reset to root
+        // fileManager.updateList(".", []); // Optional: Clear view
+        if (id) {
+            // Request root list
+            wsClient.sendText(id, "file_list .");
+        }
+    }
 
     if (!id) {
         elViewHome.style.display = "flex";
@@ -578,6 +599,33 @@ function handleBackendText(id: number, text: string) {
          // Only render if this client is active
          if (activeClientId === id) renderApplications(c.apps);
     }
+    // File Manager Data
+    else if (text.startsWith("DATA:FILES:")) {
+        const json = text.substring(11);
+        try {
+            const files = JSON.parse(json) as FileEntry[];
+            if (activeClientId === id && fileManager) {
+                // Since protocol doesn't send path back in DATA:FILES (limitation),
+                // we assume it matches current requested path - handled by FileManager logic?
+                // Actually FileManager needs to track requested path.
+                // For now, we update the list. `FileManager` will assume it's for `currentPath`?
+                // Ideally we update FileManager internal path when we REQUEST it.
+                // We'll trust the FileManager to handle render.
+                // NOTE: We should ideally update currentPath in FileManager BEFORE requesting?
+                // Let's pass the list to FileManager.
+                // Issue: We don't know the exact absolute path returned unless we infer or it was sent.
+                // Workaround: We will let FileManager use its LAST requested path.
+                // For robustness, `FileCommandHandler` could return path in `DATA:FILES:path:[json]`.
+                // But for now:
+                // We will use a hack or just pass the files.
+                // Let's assume FileManager knows what it asked for.
+                // We'll assume the path is what FileManager thinks it is.
+                fileManager.updateList(fileManager["currentPath"], files); // Access private for now or trust it
+            }
+        } catch (e) {
+            console.error("Failed to parse file list", e);
+        }
+    }
     else if (text.startsWith("DATA:PROCS:") || (text.includes("PID") && text.includes("NAME"))) { // Fallback for old/new format
          console.log("✅ Received Process List response");
          if (text.startsWith("DATA:PROCS:")) {
@@ -793,30 +841,115 @@ function initEvents() {
 
     // --- Search & Process ---
 
-    const handleSearch = (() => {
+    // Process Search Handler
+    const handleProcessSearch = (() => {
+        let timeout: any;
+        return () => {
+             clearTimeout(timeout);
+             timeout = setTimeout(() => {
+                 processSearchTerm = inpSearchProc.value.toLowerCase().trim();
+                 if (activeClientId) {
+                     const c = clients.get(activeClientId);
+                     if(c) renderProcessListForClient(c);
+                 }
+                 // Toggle Clear Button
+                 if (processSearchTerm) {
+                     btnClearSearch.style.display = "block";
+                     inpSearchProc.style.border = "1px solid var(--neon-cyan)";
+                     inpSearchProc.style.boxShadow = "0 0 5px var(--neon-cyan)";
+                 } else {
+                     btnClearSearch.style.display = "none";
+                     inpSearchProc.style.border = "";
+                     inpSearchProc.style.boxShadow = "";
+                 }
+             }, 300);
+        };
+    })();
+    inpSearchProc.addEventListener("input", handleProcessSearch);
+
+    // App Search Handler
+    const handleAppSearch = (() => {
         let timeout: any;
         return () => {
             clearTimeout(timeout);
             timeout = setTimeout(() => {
-                processSearchTerm = inpSearchProc.value.toLowerCase().trim();
+                const inp = document.getElementById("inp-search-apps") as HTMLInputElement;
+                if (!inp) return;
+                const query = inp.value.trim();
                 if (activeClientId) {
-                    const c = clients.get(activeClientId);
-                    if(c) renderProcessListForClient(c);
+                     if(query) wsClient.sendText(activeClientId, "search_apps " + query);
+                     else wsClient.sendText(activeClientId, "list_apps");
                 }
-                // Toggle Clear Button
-                if (processSearchTerm) {
-                    btnClearSearch.style.display = "block";
-                    inpSearchProc.style.border = "1px solid var(--neon-cyan)";
-                    inpSearchProc.style.boxShadow = "0 0 5px var(--neon-cyan)";
-                } else {
-                    btnClearSearch.style.display = "none";
-                    inpSearchProc.style.border = "";
-                    inpSearchProc.style.boxShadow = "";
-                }
-            }, 300);
+            }, 500);
         };
     })();
-    inpSearchProc.addEventListener("input", handleSearch);
+    const inpAppSearch = document.getElementById("inp-search-apps");
+    if(inpAppSearch) inpAppSearch.addEventListener("input", handleAppSearch);
+
+    // Initialize File Manager
+    fileManager = new FileManager("file-manager-container", {
+        onNavigate: (path) => {
+            if (activeClientId) wsClient.sendText(activeClientId, `file_list ${path}`);
+        },
+        onDownload: (path) => {
+            if (activeClientId) wsClient.sendText(activeClientId, `file_download ${path}`);
+        },
+        onDelete: (path) => {
+             if (activeClientId) wsClient.sendText(activeClientId, `file_delete ${path}`);
+             setTimeout(() => { if(activeClientId && fileManager) wsClient.sendText(activeClientId, `file_list ${fileManager['currentPath']}`); }, 500);
+        },
+        onMkdir: (path) => {
+             if (activeClientId) wsClient.sendText(activeClientId, `file_mkdir ${path}`);
+             setTimeout(() => { if(activeClientId && fileManager) wsClient.sendText(activeClientId, `file_list ${fileManager['currentPath']}`); }, 500);
+        },
+        onRename: (oldPath, newPath) => {
+             if (activeClientId) wsClient.sendText(activeClientId, `file_rename ${oldPath} ${newPath}`);
+             setTimeout(() => { if(activeClientId && fileManager) wsClient.sendText(activeClientId, `file_list ${fileManager['currentPath']}`); }, 500);
+        },
+        onUpload: (path, file) => {
+            if (!activeClientId) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const arrayBuffer = reader.result as ArrayBuffer;
+                const bytes = new Uint8Array(arrayBuffer);
+                const slash = path.includes("/") ? "/" : "\\";
+                const targetPath = path === "." ? file.name : path + (path.endsWith(slash) ? "" : slash) + file.name;
+
+                wsClient.sendText(activeClientId!, `file_upload_start ${targetPath} ${bytes.length}`);
+
+                const CHUNK_SIZE = 1024 * 30; // 30KB - safe for websocket frame
+                let offset = 0;
+
+                const sendNextChunk = () => {
+                     if (offset >= bytes.length) {
+                         wsClient.sendText(activeClientId!, `file_upload_end ${targetPath}`);
+                         setTimeout(() => { if(activeClientId) wsClient.sendText(activeClientId!, `file_list ${path}`); }, 1000);
+                         console.log("📤 Upload complete:", targetPath);
+                         return;
+                     }
+
+                     const chunk = bytes.slice(offset, offset + CHUNK_SIZE);
+                     let binary = "";
+                     for (let i = 0; i < chunk.length; i++) binary += String.fromCharCode(chunk[i]);
+                     const base64 = btoa(binary);
+
+                     wsClient.sendText(activeClientId!, `file_chunk ${targetPath} ${offset} ${base64}`);
+                     offset += CHUNK_SIZE;
+
+                     // Throttle to prevent flooding
+                     setTimeout(sendNextChunk, 5);
+                };
+
+                sendNextChunk();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    });
+
+    // Initialize Input Handler
+    const monitorVideo = document.getElementById("monitor-video")!;
+    inputHandler = new InputHandler(monitorVideo, wsClient, 0);
+    inputHandler.attach();
 
     // Clear Button Logic
     btnClearSearch.onclick = () => {

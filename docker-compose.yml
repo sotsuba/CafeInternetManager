@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   # 1. The Gateway (Server Side)
@@ -7,6 +7,9 @@ services:
       context: ./gateway
     ports:
       - "8881:8881"
+      - "9091:9091"      # Agent Registration Port (TCP)
+      - "9999:9999/udp"  # UDP Discovery port (Legacy/Backup)
+    command: ["8881", "--discover"]  # Use auto-discovery mode
     restart: always
 
   # 2. The Backend Agent (Client Side - Linux Host Mode)

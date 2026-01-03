@@ -107,38 +107,48 @@
             </div>
           </div>
 
-          <!-- Process Manager Widget -->
-          <div class="widget-card" style="grid-column: span 2;">
-            <div class="widget-header">
-              <span class="widget-title">⚡ Process Manager</span>
-              <div class="flex gap-2">
-                  <div class="flex gap-1">
-                      <input type="text" class="input input-sm" style="width: 150px;" placeholder="Start cmd explicitly..." id="inp-start-proc">
-                      <button class="btn btn-sm" id="btn-start-proc-exec">Start</button>
-                  </div>
-                  <div style="position: relative;">
-                    <input type="text" class="input input-sm" style="width: 150px; padding-right: 30px;" placeholder="Search process..." id="inp-search-proc">
-                    <button id="btn-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-foreground); cursor: pointer; display: none;">✕</button>
-                  </div>
+            <div class="widget-card" style="grid-column: span 2;">
+              <div class="widget-header">
+                <span class="widget-title">⚡ Process Manager</span>
+                <div class="flex gap-2">
+                    <div class="flex gap-1">
+                        <input type="text" class="input input-sm" style="width: 150px;" placeholder="Start cmd explicitly..." id="inp-start-proc">
+                        <button class="btn btn-sm" id="btn-start-proc-exec">Start</button>
+                    </div>
+                    <div style="position: relative;">
+                      <input type="text" class="input input-sm" style="width: 150px; padding-right: 30px;" placeholder="Search process..." id="inp-search-proc">
+                      <button id="btn-clear-search" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-foreground); cursor: pointer; display: none;">✕</button>
+                    </div>
+                </div>
+              </div>
+              <div style="max-height: 200px; overflow-y: auto;">
+                <table class="task-table">
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" id="chk-select-all-procs"></th>
+                      <th>PID</th>
+                      <th>Name</th>
+                      <th>User</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="process-list-body">
+                    <!-- JS populates rows -->
+                  </tbody>
+                </table>
               </div>
             </div>
-            <div style="max-height: 200px; overflow-y: auto;">
-              <table class="task-table">
-                <thead>
-                  <tr>
-                    <th><input type="checkbox" id="chk-select-all-procs"></th>
-                    <th>PID</th>
-                    <th>Name</th>
-                    <th>User</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="process-list-body">
-                  <!-- JS populates rows -->
-                </tbody>
-              </table>
+
+            <!-- File Manager Widget -->
+            <div class="widget-card" style="grid-column: span 2;">
+                <div class="widget-header">
+                  <span class="widget-title">📂 File Browser</span>
+                </div>
+                <div id="file-manager-container" class="border border-white/10 rounded bg-black/50 overflow-hidden">
+                    <!-- File Manager JS will populate this -->
+                    <div class="p-4 text-center text-muted">Initialize Client to view files</div>
+                </div>
             </div>
-          </div>
 
           <!-- Security Panel -->
           <div class="widget-card" style="grid-column: span 2;">

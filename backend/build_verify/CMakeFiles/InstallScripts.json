@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/CafeInternetManager/backend/build_verify/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

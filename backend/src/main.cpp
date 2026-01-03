@@ -15,7 +15,8 @@
     #include "platform/windows/WindowsWebcamStreamer.hpp"
     #include "platform/windows/WindowsKeylogger.hpp"
     #include "platform/windows/WindowsAppManager.hpp"
-    #include "platform/windows/WindowsInputInjector.hpp" // NEW
+    #include "platform/windows/WindowsInputInjector.hpp"
+    #include "platform/windows/WindowsFileTransfer.hpp"
 #else
     #include "testing/MockStreamer.hpp"
     // Mock classes for dev
@@ -35,6 +36,9 @@
     class MockInputInjector : public interfaces::IInputInjector {
         common::EmptyResult move_mouse(float, float) override { return common::Result<common::Ok>::success(); }
         common::EmptyResult click_mouse(interfaces::MouseButton, bool) override { return common::Result<common::Ok>::success(); }
+        common::EmptyResult scroll_mouse(int) override { return common::Result<common::Ok>::success(); }
+        common::EmptyResult press_key(interfaces::KeyCode, bool) override { return common::Result<common::Ok>::success(); }
+        common::EmptyResult send_text(const std::string&) override { return common::Result<common::Ok>::success(); }
     };
 #endif
 #include "core/NetworkDefs.hpp"
@@ -45,11 +49,17 @@ int main(int argc, char** argv) {
     init_network();
     std::cout << "[Main] Universal Agent Starting..." << std::endl;
 
-    int port = 9090;
+    int port = 9091; // Default Gateway Agent Port
+    std::string host = "127.0.0.1"; // Default Host
+
     if(argc > 1) {
         port = std::stoi(argv[1]);
-        std::cout << "[Main] Overriding port to: " << port << std::endl;
     }
+    if(argc > 2) {
+        host = argv[2];
+    }
+
+    std::cout << "[Main] Gateway Config: " << host << ":" << port << std::endl;
 
     // 1. Core Services
     auto bus = std::make_shared<core::BroadcastBus>();
@@ -75,6 +85,7 @@ int main(int argc, char** argv) {
 
     // 6. Server
     core::BackendServer server(
+        host,
         port,
         monitor_bus,
         webcam_bus,
@@ -82,7 +93,8 @@ int main(int argc, char** argv) {
         webcam_session,
         keylogger,
         app_manager,
-        input_injector
+        input_injector,
+        nullptr // No file transfer on Linux yet
     );
 
 #elif defined(PLATFORM_WINDOWS)
@@ -94,12 +106,14 @@ int main(int argc, char** argv) {
     auto webcam_streamer = std::make_shared<platform::windows_os::WindowsWebcamStreamer>(0);
     auto keylogger = std::make_shared<platform::windows_os::WindowsKeylogger>();
     auto app_manager = std::make_shared<platform::windows_os::WindowsAppManager>();
-    auto input_injector = std::make_shared<platform::windows_os::WindowsInputInjector>(); // NEW
+    auto input_injector = std::make_shared<platform::windows_os::WindowsInputInjector>();
+    auto file_transfer = std::make_shared<platform::windows_os::WindowsFileTransfer>();
 
     auto session = std::make_shared<core::StreamSession>(screen_streamer, monitor_bus);
     auto webcam_session = std::make_shared<core::StreamSession>(webcam_streamer, webcam_bus);
 
     core::BackendServer server(
+        host,
         port,
         monitor_bus,
         webcam_bus,
@@ -107,7 +121,8 @@ int main(int argc, char** argv) {
         webcam_session,
         keylogger,
         app_manager,
-        input_injector
+        input_injector,
+        file_transfer
     );
 #else
     std::cout << "[Main] Mode: MOCK / DEVELOPMENT" << std::endl;
@@ -119,7 +134,7 @@ int main(int argc, char** argv) {
 
     auto session = std::make_shared<core::StreamSession>(bus, streamer);
 
-    core::BackendServer server(port, bus, bus, session, session, keylogger, app_manager, input_injector);
+    core::BackendServer server(host, port, bus, bus, session, session, keylogger, app_manager, input_injector, nullptr);
 #endif
 
     // 4. Run

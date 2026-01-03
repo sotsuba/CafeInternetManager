@@ -1,0 +1,6 @@
+D:/CafeInternetManager/backend/build_verify/CMakeFiles/backend_core.dir
+D:/CafeInternetManager/backend/build_verify/CMakeFiles/backend_hal.dir
+D:/CafeInternetManager/backend/build_verify/CMakeFiles/BackendServer.dir
+D:/CafeInternetManager/backend/build_verify/CMakeFiles/BackendTest.dir
+D:/CafeInternetManager/backend/build_verify/CMakeFiles/edit_cache.dir
+D:/CafeInternetManager/backend/build_verify/CMakeFiles/rebuild_cache.dir

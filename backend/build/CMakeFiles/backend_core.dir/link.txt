@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbackend_core.a CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.o CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.o CMakeFiles/backend_core.dir/src/core/StreamSession.cpp.o CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.o CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.o
-/usr/bin/ranlib libbackend_core.a
