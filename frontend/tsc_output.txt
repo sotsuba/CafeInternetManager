@@ -1,3 +1,0 @@
-src/main.ts(2,121): error TS1484: 'BackendEntry' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
-src/main.ts(131,7): error TS6133: 'originalExit' is declared but its value is never read.
-src/ws/client.ts(22,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.

@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <iostream>
 #include "common/Result.hpp"
 
 namespace core {
@@ -26,14 +27,15 @@ struct CommandContext {
     using ResponseFn = std::function<void(std::vector<uint8_t>&&, bool is_critical)>;
     ResponseFn respond;
 
-    // Convenience methods for common response types
-    void send_text(const std::string& text, bool is_critical = true) const {
-        std::vector<uint8_t> data(text.begin(), text.end());
+    // Convenience methods
+    void send_text(const std::string& text, bool is_critical = true, const std::string& prefix = "") const {
+        std::string full_text = prefix + text;
+        std::vector<uint8_t> data(full_text.begin(), full_text.end());
         respond(std::move(data), is_critical);
     }
 
     void send_status(const std::string& category, const std::string& status) const {
-        send_text("STATUS:" + category + ":" + status);
+        send_text(category + ":" + status, true, "STATUS:");
     }
 
     void send_error(const std::string& operation, const std::string& message) const {

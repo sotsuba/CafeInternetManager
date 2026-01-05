@@ -212,16 +212,18 @@ namespace core {
     }
 
     void BackendServer::broadcast_discovery() {
-        // Packet structure matching protocol.h
+        // Discovery packet format (Matched to Gateway's discovery.h)
+        #pragma pack(push, 1)
         struct {
             uint32_t magic;
-            uint16_t backend_port;
-            char hostname[64];
+            uint16_t service_port;
+            char advertised_hostname[64];
         } packet;
+        #pragma pack(pop)
 
         packet.magic = htonl(0xCAFE1234);
-        packet.backend_port = htons(gateway_port_);
-        memset(packet.hostname, 0, sizeof(packet.hostname));
+        packet.service_port = htons(gateway_port_);
+        memset(packet.advertised_hostname, 0, sizeof(packet.advertised_hostname));
 
         std::cout << "[Discovery] Broadcasting presence on UDP port 9999..." << std::endl;
 
@@ -267,7 +269,6 @@ namespace core {
 
             #else
             // Linux/Standard: General Broadcast
-            // Creating socket each time to keep logic stateless and unified
             int sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock >= 0) {
                 int bOpt = 1;
@@ -277,9 +278,19 @@ namespace core {
                 memset(&dest, 0, sizeof(dest));
                 dest.sin_family = AF_INET;
                 dest.sin_port = htons(9999);
-                dest.sin_addr.s_addr = INADDR_BROADCAST;
 
+                // 1. General Broadcast (for other machines)
+                dest.sin_addr.s_addr = INADDR_BROADCAST;
                 sendto(sock, (const char*)&packet, sizeof(packet), 0, (struct sockaddr*)&dest, sizeof(dest));
+
+                // 2. Loopback Broadcast (for same-machine discovery)
+                // On some Linux configs, INADDR_BROADCAST doesn't loop back to lo
+                dest.sin_addr.s_addr = inet_addr("127.0.0.1");
+                if (sendto(sock, (const char*)&packet, sizeof(packet), 0, (struct sockaddr*)&dest, sizeof(dest)) > 0) {
+                    // Success log (throttled conceptually by loop sleep)
+                    // std::cout << "[Discovery] Sent packet to 127.0.0.1:9999" << std::endl;
+                }
+
                 close(sock);
             }
             #endif
@@ -617,7 +628,7 @@ namespace core {
                     ctx.backend_id = my_backend_id;
                     // Create a responder that wraps the local sender lambda
                     ctx.respond = [sender, cid, my_backend_id](std::vector<uint8_t>&& d, bool c) {
-                        sender(d, 0, c, cid, my_backend_id);
+                        sender(d, 0x01, c, cid, my_backend_id);
                     };
 
                     // ASYNC: File operations can be slow (disk I/O)

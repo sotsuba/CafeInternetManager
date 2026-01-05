@@ -131,29 +131,27 @@ common::EmptyResult LinuxPipeWireStreamer::stream(
 
     std::string cmd;
 
+    // === MJPEG STREAMING ===
+    // All tools are configured to output MJPEG for reliable frame delivery
     if (capture_tool_ == "wl-screenrec") {
-        // wl-screenrec: Outputs H.264 to stdout
-        // --low-power uses VA-API for hardware encoding
+        // wl-screenrec: Output MJPEG via ffmpeg pipe
         cmd = "wl-screenrec --low-power -f - "
-              "--codec h264 --encode-resolution " + screen_resolution_ + " "
-              "--audio=no 2>/dev/null";
+              "--codec raw --encode-resolution " + screen_resolution_ + " "
+              "--audio=no 2>/dev/null | "
+              "ffmpeg -f rawvideo -pixel_format bgr0 -video_size " + screen_resolution_ + " "
+              "-framerate 30 -i - -c:v mjpeg -q:v 8 -f mjpeg - 2>/dev/null";
     }
     else if (capture_tool_ == "wf-recorder") {
-        // wf-recorder: Similar, outputs to stdout with -o -
-        cmd = "wf-recorder -c h264_vaapi -f - "
+        // wf-recorder: Use mjpeg directly if possible, or pipe through ffmpeg
+        cmd = "wf-recorder -c mjpeg -f - "
               "-g " + screen_resolution_ + " "
               "--no-audio 2>/dev/null";
-
-        // Fallback to software encoding if VA-API fails
-        // cmd = "wf-recorder -c libx264 -p preset=ultrafast -p tune=zerolatency -f - 2>/dev/null";
     }
     else if (capture_tool_ == "gstreamer-pipewire") {
-        // GStreamer pipeline with PipeWire source
-        // This uses xdg-desktop-portal for screen selection
+        // GStreamer pipeline with PipeWire source outputting MJPEG
         cmd = "gst-launch-1.0 pipewiresrc ! "
               "videoconvert ! "
-              "x264enc tune=zerolatency speed-preset=ultrafast ! "
-              "h264parse ! "
+              "jpegenc quality=80 ! "
               "filesink location=/dev/stdout 2>/dev/null";
     }
     else {
@@ -162,6 +160,8 @@ common::EmptyResult LinuxPipeWireStreamer::stream(
             "Unknown capture tool: " + capture_tool_);
     }
 
+    std::cout << "[PipeWire] Starting MJPEG stream: " << cmd << std::endl;
+
     capture_pipe_ = popen(cmd.c_str(), "r");
     if (!capture_pipe_) {
         return common::Result<common::Ok>::err(
@@ -169,48 +169,63 @@ common::EmptyResult LinuxPipeWireStreamer::stream(
             "Failed to start " + capture_tool_);
     }
 
-    std::vector<uint8_t> buffer(65536);  // 64KB chunks
-    static uint64_t pts = 0;
+    // JPEG markers
+    const uint8_t soi_marker[2] = {0xFF, 0xD8}; // Start Of Image
+    const uint8_t eoi_marker[2] = {0xFF, 0xD9}; // End Of Image
+
+    std::vector<uint8_t> read_buffer(65536);
+    std::vector<uint8_t> frame_buffer;
+    frame_buffer.reserve(256 * 1024);
+
+    uint64_t pts = 0;
+    int frame_count = 0;
 
     while (!token.is_cancellation_requested()) {
-        size_t n = fread(buffer.data(), 1, buffer.size(), capture_pipe_);
-        if (n <= 0) break;  // EOF or error
+        size_t n = fread(read_buffer.data(), 1, read_buffer.size(), capture_pipe_);
+        if (n <= 0) break;
 
-        std::vector<uint8_t> chunk(buffer.begin(), buffer.begin() + n);
+        frame_buffer.insert(frame_buffer.end(), read_buffer.begin(), read_buffer.begin() + n);
 
-        // Detect packet kind by scanning for NAL unit types
-        common::PacketKind kind = common::PacketKind::InterFrame;
-
-        for (size_t i = 0; i + 4 < n; ++i) {
-            if (chunk[i] == 0 && chunk[i+1] == 0) {
-                // Check for 00 00 01 or 00 00 00 01 start codes
-                size_t nal_start = 0;
-                if (chunk[i+2] == 1) {
-                    nal_start = i + 3;
-                } else if (chunk[i+2] == 0 && chunk[i+3] == 1) {
-                    nal_start = i + 4;
-                }
-
-                if (nal_start > 0 && nal_start < n) {
-                    uint8_t nal_type = chunk[nal_start] & 0x1F;
-                    if (nal_type == 7 || nal_type == 8) {
-                        kind = common::PacketKind::CodecConfig;
-                        break;
-                    } else if (nal_type == 5) {
-                        kind = common::PacketKind::KeyFrame;
-                        break;
-                    }
-                }
+        // Extract complete JPEG frames
+        while (true) {
+            auto soi_it = std::search(frame_buffer.begin(), frame_buffer.end(), soi_marker, soi_marker + 2);
+            if (soi_it == frame_buffer.end()) {
+                frame_buffer.clear();
+                break;
             }
+
+            auto eoi_it = std::search(soi_it + 2, frame_buffer.end(), eoi_marker, eoi_marker + 2);
+            if (eoi_it == frame_buffer.end()) {
+                if (soi_it != frame_buffer.begin()) {
+                    frame_buffer.erase(frame_buffer.begin(), soi_it);
+                }
+                break;
+            }
+
+            eoi_it += 2;
+            std::vector<uint8_t> jpeg_frame(soi_it, eoi_it);
+
+            auto data_ptr = std::make_shared<const std::vector<uint8_t>>(std::move(jpeg_frame));
+            on_packet(common::VideoPacket{data_ptr, pts++, 1, common::PacketKind::KeyFrame});
+
+            frame_count++;
+            if (frame_count % 30 == 0) {
+                std::cout << "[PipeWire] Sent MJPEG frame #" << frame_count << " (" << data_ptr->size() << " bytes)" << std::endl;
+            }
+
+            frame_buffer.erase(frame_buffer.begin(), eoi_it);
         }
 
-        auto shared_data = std::make_shared<const std::vector<uint8_t>>(std::move(chunk));
-        on_packet(common::VideoPacket{shared_data, pts++, 1, kind});
+        if (frame_buffer.size() > 1024 * 1024) {
+            std::cerr << "[PipeWire] WARNING: Frame buffer overflow, clearing" << std::endl;
+            frame_buffer.clear();
+        }
     }
 
     pclose(capture_pipe_);
     capture_pipe_ = nullptr;
 
+    std::cout << "[PipeWire] MJPEG stream stopped. Total frames: " << frame_count << std::endl;
     return common::Result<common::Ok>::success();
 }
 

@@ -114,6 +114,7 @@ static std::string escape_json(const std::string& s) {
 }
 
 common::EmptyResult FileListCommand::execute() {
+    std::cout << "[FileList] Executing for path: " << path_ << std::endl;
     auto result = transfer_.list_directory(path_);
 
     if (result.is_err()) {
@@ -139,6 +140,7 @@ common::EmptyResult FileListCommand::execute() {
     }
     ss << "]";
 
+    std::cout << "[FileList] Sending " << files.size() << " items" << std::endl;
     ctx_.send_data("FILES", ss.str());
     return common::EmptyResult::success();
 }

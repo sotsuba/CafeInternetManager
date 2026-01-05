@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/CafeInternetManager/gateway-win/build_mingw/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

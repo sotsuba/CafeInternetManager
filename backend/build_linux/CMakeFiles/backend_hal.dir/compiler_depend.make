@@ -476,6 +476,7 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.o: /mnt/hgfs/
   /usr/include/linux/stddef.h \
   /usr/include/linux/types.h \
   /usr/include/locale.h \
+  /usr/include/poll.h \
   /usr/include/pthread.h \
   /usr/include/sched.h \
   /usr/include/stdc-predef.h \
@@ -515,6 +516,8 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.o: /mnt/hgfs/
   /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
   /usr/include/x86_64-linux-gnu/bits/locale.h \
   /usr/include/x86_64-linux-gnu/bits/long-double.h \
+  /usr/include/x86_64-linux-gnu/bits/poll.h \
+  /usr/include/x86_64-linux-gnu/bits/poll2.h \
   /usr/include/x86_64-linux-gnu/bits/posix_opt.h \
   /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
   /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
@@ -600,6 +603,7 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.o: /mnt/hgfs/
   /usr/include/x86_64-linux-gnu/gnu/stubs.h \
   /usr/include/x86_64-linux-gnu/sys/cdefs.h \
   /usr/include/x86_64-linux-gnu/sys/ioctl.h \
+  /usr/include/x86_64-linux-gnu/sys/poll.h \
   /usr/include/x86_64-linux-gnu/sys/select.h \
   /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
   /usr/include/x86_64-linux-gnu/sys/time.h \
@@ -2740,8 +2744,6 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxXTestInjector.cpp.o: /mnt/hgf
 
 /usr/include/linux/uinput.h:
 
-/mnt/hgfs/CafeInternetManager/backend/src/platform/linux/LinuxUInputInjector.cpp:
-
 /mnt/hgfs/CafeInternetManager/backend/src/platform/linux/LinuxPlatformFactory.cpp:
 
 /mnt/hgfs/CafeInternetManager/backend/include/interfaces/IInputInjector.hpp:
@@ -2778,9 +2780,15 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxXTestInjector.cpp.o: /mnt/hgf
 
 /usr/include/x86_64-linux-gnu/sys/time.h:
 
+/mnt/hgfs/CafeInternetManager/backend/src/platform/linux/LinuxUInputInjector.cpp:
+
+/usr/include/x86_64-linux-gnu/sys/poll.h:
+
 /usr/include/x86_64-linux-gnu/sys/ioctl.h:
 
 /usr/include/x86_64-linux-gnu/bits/strings_fortified.h:
+
+/usr/include/x86_64-linux-gnu/bits/poll.h:
 
 /usr/include/c++/13/bits/align.h:
 
@@ -3008,6 +3016,8 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxXTestInjector.cpp.o: /mnt/hgf
 
 /usr/include/asm-generic/errno.h:
 
+/usr/include/poll.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
 
 /usr/include/c++/13/ext/numeric_traits.h:
@@ -3149,6 +3159,8 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxXTestInjector.cpp.o: /mnt/hgf
 /usr/include/c++/13/bit:
 
 /usr/include/c++/13/bits/basic_string.tcc:
+
+/usr/include/x86_64-linux-gnu/bits/poll2.h:
 
 /usr/include/c++/13/bits/enable_special_members.h:
 

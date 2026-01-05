@@ -6,5 +6,5 @@ CXX_DEFINES = -DPLATFORM_WINDOWS
 
 CXX_INCLUDES = @CMakeFiles/backend_core.dir/includes_CXX.rsp
 
-CXX_FLAGS = -std=gnu++17
+CXX_FLAGS =  -static -static-libgcc -static-libstdc++ -std=gnu++17
 

@@ -46,6 +46,13 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     target_link_libraries(backend_hal PRIVATE X11::X11 X11::Xtst)
 elseif(WIN32)
     add_compile_definitions(PLATFORM_WINDOWS)
+
+    # Static linking for MinGW to avoid DLL dependencies (libstdc++, libgcc, libwinpthread)
+    if(MINGW)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static -static-libgcc -static-libstdc++")
+    endif()
+
     add_library(backend_hal
         src/platform/windows/WindowsScreenStreamer.cpp
         src/platform/windows/WindowsWebcamStreamer.cpp

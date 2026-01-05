@@ -1,3 +1,3 @@
 E:\bin\cmake.exe -E rm -f CMakeFiles\BackendServer.dir/objects.a
 C:\mingw64\bin\ar.exe qc CMakeFiles\BackendServer.dir/objects.a @CMakeFiles\BackendServer.dir\objects1.rsp
-C:\mingw64\bin\c++.exe -Wl,--whole-archive CMakeFiles\BackendServer.dir/objects.a -Wl,--no-whole-archive -o BackendServer.exe -Wl,--out-implib,libBackendServer.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\BackendServer.dir\linkLibs.rsp
+C:\mingw64\bin\c++.exe  -static -static-libgcc -static-libstdc++  -static -static-libgcc -static-libstdc++ -Wl,--whole-archive CMakeFiles\BackendServer.dir/objects.a -Wl,--no-whole-archive -o BackendServer.exe -Wl,--out-implib,libBackendServer.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\BackendServer.dir\linkLibs.rsp

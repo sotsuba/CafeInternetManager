@@ -48,64 +48,87 @@ namespace linux_os {
         common::CancellationToken token
     ) {
         std::string res = detect_resolution();
+
+        // === MJPEG STREAMING ===
+        // Much more reliable than H.264 for real-time remote desktop
+        // Each frame is a standalone JPEG - no codec state corruption on drops
         std::string cmd = "ffmpeg -f x11grab -draw_mouse 1 -framerate 30 "
                           "-video_size " + res + " -i :0.0 "
-                          "-c:v libx264 -preset ultrafast -tune zerolatency -g 30 "
-                          "-profile:v baseline -level 3.0 -bf 0 "
-                          "-pix_fmt yuv420p "
-                          "-f h264 - 2>/dev/null"; // Suppress log or redirect to file
+                          "-vf scale=1280:-2 -c:v mjpeg -q:v 8 "
+                          "-f mjpeg - 2>/dev/null";
+
+        std::cout << "[Screen] Starting MJPEG stream: " << cmd << std::endl;
 
         ffmpeg_pipe_ = popen(cmd.c_str(), "r");
         if (!ffmpeg_pipe_) {
             return common::Result<common::Ok>::err(common::ErrorCode::EncoderError, "Failed to start ffmpeg");
         }
 
-        std::vector<uint8_t> buffer(65536); // 64KB chunks
+        // JPEG markers
+        const uint8_t soi_marker[2] = {0xFF, 0xD8}; // Start Of Image
+        const uint8_t eoi_marker[2] = {0xFF, 0xD9}; // End Of Image
+
+        std::vector<uint8_t> read_buffer(65536);
+        std::vector<uint8_t> frame_buffer;
+        frame_buffer.reserve(256 * 1024); // Pre-allocate for typical JPEG size
+
+        uint64_t pts = 0;
+        int frame_count = 0;
 
         while (!token.is_cancellation_requested()) {
-            size_t n = fread(buffer.data(), 1, buffer.size(), ffmpeg_pipe_);
-            if (n <= 0) break; // EOF
+            size_t n = fread(read_buffer.data(), 1, read_buffer.size(), ffmpeg_pipe_);
+            if (n <= 0) break;
 
-            // Create a packet from this chunk
-            // We optimize by copying only the read amount.
-            // In a hyper-optimized system, we'd use a pool of pre-allocated buffers.
-            std::vector<uint8_t> chunk(buffer.begin(), buffer.begin() + n);
+            // Append to frame buffer
+            frame_buffer.insert(frame_buffer.end(), read_buffer.begin(), read_buffer.begin() + n);
 
-            // Peek for NALU Types to set Metadata (SPS=7, PPS=8, IDR=5)
-            // This allows BroadcastBus to still perform smart filtering
-            common::PacketKind kind = common::PacketKind::InterFrame;
-
-            // Simple scan for 00 00 01 XX
-            for (size_t i = 0; i < n - 4; ++i) {
-                if (chunk[i] == 0 && chunk[i+1] == 0) {
-                    // Check 00 00 01
-                    if (chunk[i+2] == 1) {
-                         uint8_t type = chunk[i+3] & 0x1F;
-                         if (type == 7 || type == 8) kind = common::PacketKind::CodecConfig;
-                         else if (type == 5) kind = common::PacketKind::KeyFrame;
-                         if (kind != common::PacketKind::InterFrame) break; // Found high priority
-                    }
-                    // Check 00 00 00 01
-                    else if (chunk[i+2] == 0 && chunk[i+3] == 1) {
-                         if (i + 4 < n) {
-                             uint8_t type = chunk[i+4] & 0x1F;
-                             if (type == 7 || type == 8) kind = common::PacketKind::CodecConfig;
-                             else if (type == 5) kind = common::PacketKind::KeyFrame;
-                             if (kind != common::PacketKind::InterFrame) break;
-                         }
-                    }
+            // Extract complete JPEG frames
+            while (true) {
+                // Find SOI (Start of Image)
+                auto soi_it = std::search(frame_buffer.begin(), frame_buffer.end(), soi_marker, soi_marker + 2);
+                if (soi_it == frame_buffer.end()) {
+                    frame_buffer.clear(); // No SOI, discard garbage
+                    break;
                 }
+
+                // Find EOI (End of Image) after SOI
+                auto eoi_it = std::search(soi_it + 2, frame_buffer.end(), eoi_marker, eoi_marker + 2);
+                if (eoi_it == frame_buffer.end()) {
+                    // Incomplete frame, wait for more data
+                    // But trim any garbage before SOI
+                    if (soi_it != frame_buffer.begin()) {
+                        frame_buffer.erase(frame_buffer.begin(), soi_it);
+                    }
+                    break;
+                }
+
+                // Found complete JPEG frame (SOI to EOI inclusive)
+                eoi_it += 2; // Include EOI bytes
+                std::vector<uint8_t> jpeg_frame(soi_it, eoi_it);
+
+                // Send frame - all MJPEG frames are KeyFrames
+                auto data_ptr = std::make_shared<const std::vector<uint8_t>>(std::move(jpeg_frame));
+                on_packet(common::VideoPacket{data_ptr, pts++, 1, common::PacketKind::KeyFrame});
+
+                frame_count++;
+                if (frame_count % 30 == 0) {
+                    std::cout << "[Screen] Sent MJPEG frame #" << frame_count << " (" << data_ptr->size() << " bytes)" << std::endl;
+                }
+
+                // Remove processed frame from buffer
+                frame_buffer.erase(frame_buffer.begin(), eoi_it);
             }
 
-            auto shared_data = std::make_shared<const std::vector<uint8_t>>(std::move(chunk));
-            // Just use monotonic increment for simple chunking
-            static uint64_t chunk_pts = 0;
-            // Generate packet
-            on_packet(common::VideoPacket{shared_data, chunk_pts++, 1, kind});
+            // Prevent unbounded buffer growth (safety limit)
+            if (frame_buffer.size() > 1024 * 1024) {
+                std::cerr << "[Screen] WARNING: Frame buffer overflow, clearing" << std::endl;
+                frame_buffer.clear();
+            }
         }
 
         pclose(ffmpeg_pipe_);
         ffmpeg_pipe_ = nullptr;
+        std::cout << "[Screen] MJPEG stream stopped. Total frames: " << frame_count << std::endl;
         return common::Result<common::Ok>::success();
     }
 

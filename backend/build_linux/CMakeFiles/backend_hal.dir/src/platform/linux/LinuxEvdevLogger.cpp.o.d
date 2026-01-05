@@ -231,4 +231,7 @@ CMakeFiles/backend_hal.dir/src/platform/linux/LinuxEvdevLogger.cpp.o: \
  /usr/include/string.h /usr/include/strings.h \
  /usr/include/x86_64-linux-gnu/bits/strings_fortified.h \
  /usr/include/x86_64-linux-gnu/bits/string_fortified.h \
- /usr/include/c++/13/chrono
+ /usr/include/c++/13/chrono /usr/include/poll.h \
+ /usr/include/x86_64-linux-gnu/sys/poll.h \
+ /usr/include/x86_64-linux-gnu/bits/poll.h \
+ /usr/include/x86_64-linux-gnu/bits/poll2.h
