@@ -35,6 +35,9 @@ namespace linux_os {
         // IInputInjector interface
         common::EmptyResult move_mouse(float x_percent, float y_percent) override;
         common::EmptyResult click_mouse(interfaces::MouseButton button, bool is_down) override;
+        common::EmptyResult scroll_mouse(int delta) override;
+        common::EmptyResult press_key(interfaces::KeyCode key, bool is_down) override;
+        common::EmptyResult send_text(const std::string& text) override;
 
         // Check if uinput is available
         bool is_available() const { return initialized_; }

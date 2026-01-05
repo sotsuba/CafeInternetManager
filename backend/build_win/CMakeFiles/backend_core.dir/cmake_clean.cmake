@@ -5,8 +5,6 @@ file(REMOVE_RECURSE
   "CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.obj.d"
   "CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj"
   "CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj.d"
-  "CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj"
-  "CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj.d"
   "CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.obj"
   "CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.obj.d"
   "CMakeFiles/backend_core.dir/src/core/GatewayProtocolV1.cpp.obj"

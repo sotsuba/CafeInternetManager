@@ -75,11 +75,14 @@ namespace core {
         // Explicitly copy "Universal Agent" to service_name
         strncpy(packet.service_name, "Universal Agent", sizeof(packet.service_name) - 1);
 
-        #ifdef _WIN32
-        // On Windows Docker Desktop, we must specific "host.docker.internal"
-        // because the auto-detected IP (172.x) points to the WSL2 VM, not the Host.
-        strncpy(packet.advertised_hostname, "host.docker.internal", sizeof(packet.advertised_hostname) - 1);
-        #endif
+        // #ifdef _WIN32
+        // // On Windows Docker Desktop, we must specific "host.docker.internal"
+        // // because the auto-detected IP (172.x) points to the WSL2 VM, not the Host.
+        // strncpy(packet.advertised_hostname, "host.docker.internal", sizeof(packet.advertised_hostname) - 1);
+        // #endif
+
+        // Native Mode: Leave advertised_hostname empty so Gateway uses the Sender IP.
+        packet.advertised_hostname[0] = '\0';
 
         while (running_) {
             // Update port in case it changes (unlikely) but nice to have in loop or just set once

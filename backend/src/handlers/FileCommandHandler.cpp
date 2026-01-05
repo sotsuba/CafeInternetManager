@@ -87,6 +87,32 @@ static std::string base64_encode(const uint8_t* data, size_t len) {
 // Command Implementations
 // ============================================================================
 
+// Helper for JSON escaping
+static std::string escape_json(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 10);
+    for (char c : s) {
+        switch (c) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(c) < 32) {
+                    char buf[8];
+                    snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    out += buf;
+                } else {
+                    out += c;
+                }
+        }
+    }
+    return out;
+}
+
 common::EmptyResult FileListCommand::execute() {
     auto result = transfer_.list_directory(path_);
 
@@ -103,8 +129,8 @@ common::EmptyResult FileListCommand::execute() {
     for (size_t i = 0; i < files.size(); ++i) {
         if (i > 0) ss << ",";
         const auto& f = files[i];
-        ss << "{\"name\":\"" << f.name
-           << "\",\"path\":\"" << f.path
+        ss << "{\"name\":\"" << escape_json(f.name)
+           << "\",\"path\":\"" << escape_json(f.path)
            << "\",\"size\":" << f.size
            << ",\"time\":" << f.modified_time
            << ",\"dir\":" << (f.is_directory ? "true" : "false")
@@ -178,7 +204,7 @@ common::EmptyResult FileDownloadCommand::execute() {
                 chunk_msg << chunk_num++ << "|" << size << "|"
                           << (is_last ? "1" : "0") << "|" << encoded;
 
-                ctx.send_data("FILE_CHUNK", chunk_msg.str());
+                ctx.send_data("FILE_CHUNK", chunk_msg.str(), false); // Low Priority
             },
             nullptr  // No progress callback needed
         );

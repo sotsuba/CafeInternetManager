@@ -22,6 +22,9 @@ namespace linux_os {
 
         common::Result<common::RawFrame> capture_snapshot() override;
 
+        // Gracefully stop the current stream
+        void stop();
+
     private:
         std::string detect_resolution();
 

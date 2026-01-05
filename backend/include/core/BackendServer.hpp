@@ -12,6 +12,7 @@
 #include "interfaces/IInputInjector.hpp"
 #include "interfaces/IFileTransfer.hpp"
 #include "core/CommandDispatcher.hpp"
+#include "core/ThreadPool.hpp"
 
 #include "core/NetworkDefs.hpp"
 
@@ -20,7 +21,6 @@ namespace core {
     class BackendServer {
     public:
         BackendServer(
-            std::string gateway_host,
             uint16_t port,
             std::shared_ptr<BroadcastBus> bus_monitor,
             std::shared_ptr<BroadcastBus> bus_webcam,
@@ -40,16 +40,19 @@ namespace core {
         void stop();
 
     private:
-        socket_t connect_to_gateway();
-        void handle_connection(socket_t fd);
+        void handle_connection(socket_t fd_control, socket_t fd_data);
+        void broadcast_discovery(); // UDP Discovery broadcaster
 
         // Protocol Helpers
-        bool read_frame(socket_t fd, std::vector<uint8_t>& payload, uint32_t& cid, uint32_t& bid);
-        bool send_frame(socket_t fd, const uint8_t* payload, uint32_t len, uint32_t cid, uint32_t bid);
+        // Legacy helpers removed
 
     private:
-        std::string gateway_host_;
-        uint16_t gateway_port_;
+        static constexpr int DATA_PORT_OFFSET = 1; // Data port = Control port + 1
+
+        uint16_t gateway_port_;         // Control port to listen on
+        socket_t listen_fd_{INVALID_SOCKET};       // Control channel
+        socket_t listen_fd_data_{INVALID_SOCKET};  // Data channel
+        std::thread discovery_thread_;
         std::atomic<bool> running_{false};
         std::shared_ptr<BroadcastBus> bus_monitor_;
         std::shared_ptr<BroadcastBus> bus_webcam_;
@@ -60,6 +63,7 @@ namespace core {
         std::shared_ptr<interfaces::IInputInjector> input_injector_;
         std::shared_ptr<interfaces::IFileTransfer> file_transfer_;
         std::unique_ptr<command::CommandDispatcher> dispatcher_;
+        std::unique_ptr<ThreadPool> command_pool_; // Async command execution
     };
 
 } // namespace core

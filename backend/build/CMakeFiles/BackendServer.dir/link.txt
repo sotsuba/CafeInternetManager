@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/BackendServer.dir/src/main.cpp.o -o BackendServer  libbackend_core.a libbackend_hal.a -lpthread /usr/lib/x86_64-linux-gnu/libXtst.so /usr/lib/x86_64-linux-gnu/libXi.so /usr/lib/x86_64-linux-gnu/libXext.so /usr/lib/x86_64-linux-gnu/libX11.so 

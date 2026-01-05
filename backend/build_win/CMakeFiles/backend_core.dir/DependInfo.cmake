@@ -11,7 +11,6 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "D:/CafeInternetManager/backend/src/core/BackendServer.cpp" "CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.obj" "gcc" "CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.obj.d"
   "D:/CafeInternetManager/backend/src/core/BroadcastBus.cpp" "CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.obj" "gcc" "CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.obj.d"
   "D:/CafeInternetManager/backend/src/core/CommandDispatcher.cpp" "CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj" "gcc" "CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj.d"
-  "D:/CafeInternetManager/backend/src/core/DiscoveryClient.cpp" "CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj" "gcc" "CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj.d"
   "D:/CafeInternetManager/backend/src/core/GatewayConnection.cpp" "CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.obj" "gcc" "CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.obj.d"
   "D:/CafeInternetManager/backend/src/core/GatewayProtocolV1.cpp" "CMakeFiles/backend_core.dir/src/core/GatewayProtocolV1.cpp.obj" "gcc" "CMakeFiles/backend_core.dir/src/core/GatewayProtocolV1.cpp.obj.d"
   "D:/CafeInternetManager/backend/src/core/PlatformRegistry.cpp" "CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj" "gcc" "CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj.d"

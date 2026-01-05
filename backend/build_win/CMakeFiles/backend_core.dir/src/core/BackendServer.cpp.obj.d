@@ -205,7 +205,14 @@ CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.obj: \
  D:/CafeInternetManager/backend/include/interfaces/IFileTransfer.hpp \
  D:/CafeInternetManager/backend/include/core/CommandDispatcher.hpp \
  D:/CafeInternetManager/backend/include/core/ICommand.hpp \
- D:/CafeInternetManager/backend/include/core/DiscoveryClient.hpp \
+ D:/CafeInternetManager/backend/include/core/ThreadPool.hpp \
+ c:\mingw64\include\c++\12.1.0\queue c:\mingw64\include\c++\12.1.0\deque \
+ c:\mingw64\include\c++\12.1.0\bits\stl_deque.h \
+ c:\mingw64\include\c++\12.1.0\bits\deque.tcc \
+ c:\mingw64\include\c++\12.1.0\bits\stl_queue.h \
+ c:\mingw64\include\c++\12.1.0\condition_variable \
+ c:\mingw64\include\c++\12.1.0\future \
+ c:\mingw64\include\c++\12.1.0\bits\atomic_futex.h \
  D:/CafeInternetManager/backend/include/core/NetworkDefs.hpp \
  c:\mingw64\x86_64-w64-mingw32\include\winsock2.h \
  c:\mingw64\x86_64-w64-mingw32\include\_mingw_unicode.h \
@@ -448,13 +455,33 @@ CMakeFiles/backend_core.dir/src/core/BackendServer.cpp.obj: \
  D:/CafeInternetManager/backend/include/interfaces/INetworkSocket.hpp \
  D:/CafeInternetManager/backend/include/core/Protocol.hpp \
  D:/CafeInternetManager/backend/src/core/network/PacketDispatcher.hpp \
- c:\mingw64\include\c++\12.1.0\deque \
- c:\mingw64\include\c++\12.1.0\bits\stl_deque.h \
- c:\mingw64\include\c++\12.1.0\bits\deque.tcc \
  D:/CafeInternetManager/backend/include/handlers/FileCommandHandler.hpp \
  c:\mingw64\include\c++\12.1.0\sstream \
  c:\mingw64\include\c++\12.1.0\bits\sstream.tcc \
  c:\mingw64\include\c++\12.1.0\cstring \
  c:\mingw64\include\c++\12.1.0\algorithm \
  c:\mingw64\include\c++\12.1.0\pstl\glue_algorithm_defs.h \
- c:\mingw64\include\c++\12.1.0\chrono
+ c:\mingw64\include\c++\12.1.0\chrono \
+ c:\mingw64\x86_64-w64-mingw32\include\iphlpapi.h \
+ c:\mingw64\x86_64-w64-mingw32\include\iprtrmib.h \
+ c:\mingw64\x86_64-w64-mingw32\include\mprapi.h \
+ c:\mingw64\x86_64-w64-mingw32\include\lmcons.h \
+ c:\mingw64\x86_64-w64-mingw32\include\ras.h \
+ c:\mingw64\x86_64-w64-mingw32\include\naptypes.h \
+ c:\mingw64\x86_64-w64-mingw32\include\ocidl.h \
+ c:\mingw64\x86_64-w64-mingw32\include\ipmib.h \
+ c:\mingw64\x86_64-w64-mingw32\include\nldef.h \
+ c:\mingw64\x86_64-w64-mingw32\include\ipifcons.h \
+ c:\mingw64\x86_64-w64-mingw32\include\udpmib.h \
+ c:\mingw64\x86_64-w64-mingw32\include\tcpmib.h \
+ c:\mingw64\x86_64-w64-mingw32\include\ipexport.h \
+ c:\mingw64\x86_64-w64-mingw32\include\iptypes.h \
+ c:\mingw64\x86_64-w64-mingw32\include\ifdef.h \
+ c:\mingw64\x86_64-w64-mingw32\include\tcpestats.h \
+ c:\mingw64\x86_64-w64-mingw32\include\netioapi.h \
+ c:\mingw64\x86_64-w64-mingw32\include\ntddndis.h \
+ c:\mingw64\x86_64-w64-mingw32\include\devpkey.h \
+ c:\mingw64\x86_64-w64-mingw32\include\devpropdef.h \
+ c:\mingw64\x86_64-w64-mingw32\include\pciprop.h \
+ c:\mingw64\x86_64-w64-mingw32\include\windot11.h \
+ c:\mingw64\x86_64-w64-mingw32\include\wlantypes.h

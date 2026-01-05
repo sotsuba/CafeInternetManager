@@ -2,6 +2,7 @@
 #include <iostream>
 #include <windows.h>
 #include <algorithm> // For std::replace if needed
+#include <chrono>
 
 namespace platform {
 namespace windows_os {
@@ -59,13 +60,24 @@ namespace windows_os {
 
     void WindowsKeylogger::stop() {
         if (!running_) return;
+
+        auto start_time = std::chrono::high_resolution_clock::now();
+        std::cout << "[WindowsKeylogger] stop() called" << std::endl;
+
         running_ = false;
 
         if (thread_id_ != 0) {
+            std::cout << "[WindowsKeylogger] Sending WM_QUIT to thread " << thread_id_ << std::endl;
             PostThreadMessage(thread_id_, WM_QUIT, 0, 0);
         }
 
-        if(thread_.joinable()) thread_.join();
+        if(thread_.joinable()) {
+            std::cout << "[WindowsKeylogger] Waiting for thread to join..." << std::endl;
+            thread_.join();
+            auto join_time = std::chrono::high_resolution_clock::now();
+            auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(join_time - start_time).count();
+            std::cout << "[WindowsKeylogger] Thread joined after " << elapsed_ms << "ms" << std::endl;
+        }
 
         g_callback = nullptr;
     }

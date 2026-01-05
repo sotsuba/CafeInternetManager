@@ -239,30 +239,6 @@ src/core/CommandDispatcher.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\backend_core.dir\build.make CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.s
 .PHONY : src/core/CommandDispatcher.cpp.s
 
-src/core/DiscoveryClient.obj: src/core/DiscoveryClient.cpp.obj
-.PHONY : src/core/DiscoveryClient.obj
-
-# target to build an object file
-src/core/DiscoveryClient.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\backend_core.dir\build.make CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj
-.PHONY : src/core/DiscoveryClient.cpp.obj
-
-src/core/DiscoveryClient.i: src/core/DiscoveryClient.cpp.i
-.PHONY : src/core/DiscoveryClient.i
-
-# target to preprocess a source file
-src/core/DiscoveryClient.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\backend_core.dir\build.make CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.i
-.PHONY : src/core/DiscoveryClient.cpp.i
-
-src/core/DiscoveryClient.s: src/core/DiscoveryClient.cpp.s
-.PHONY : src/core/DiscoveryClient.s
-
-# target to generate assembly for a file
-src/core/DiscoveryClient.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\backend_core.dir\build.make CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.s
-.PHONY : src/core/DiscoveryClient.cpp.s
-
 src/core/GatewayConnection.obj: src/core/GatewayConnection.cpp.obj
 .PHONY : src/core/GatewayConnection.obj
 
@@ -764,9 +740,6 @@ help:
 	@echo ... src/core/CommandDispatcher.obj
 	@echo ... src/core/CommandDispatcher.i
 	@echo ... src/core/CommandDispatcher.s
-	@echo ... src/core/DiscoveryClient.obj
-	@echo ... src/core/DiscoveryClient.i
-	@echo ... src/core/DiscoveryClient.s
 	@echo ... src/core/GatewayConnection.obj
 	@echo ... src/core/GatewayConnection.i
 	@echo ... src/core/GatewayConnection.s

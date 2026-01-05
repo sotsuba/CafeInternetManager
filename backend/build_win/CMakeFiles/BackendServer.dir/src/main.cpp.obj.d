@@ -205,7 +205,14 @@ CMakeFiles/BackendServer.dir/src/main.cpp.obj: \
  D:/CafeInternetManager/backend/include/interfaces/IFileTransfer.hpp \
  D:/CafeInternetManager/backend/include/core/CommandDispatcher.hpp \
  D:/CafeInternetManager/backend/include/core/ICommand.hpp \
- D:/CafeInternetManager/backend/include/core/DiscoveryClient.hpp \
+ D:/CafeInternetManager/backend/include/core/ThreadPool.hpp \
+ c:\mingw64\include\c++\12.1.0\queue c:\mingw64\include\c++\12.1.0\deque \
+ c:\mingw64\include\c++\12.1.0\bits\stl_deque.h \
+ c:\mingw64\include\c++\12.1.0\bits\deque.tcc \
+ c:\mingw64\include\c++\12.1.0\bits\stl_queue.h \
+ c:\mingw64\include\c++\12.1.0\condition_variable \
+ c:\mingw64\include\c++\12.1.0\future \
+ c:\mingw64\include\c++\12.1.0\bits\atomic_futex.h \
  D:/CafeInternetManager/backend/include/core/NetworkDefs.hpp \
  c:\mingw64\x86_64-w64-mingw32\include\winsock2.h \
  c:\mingw64\x86_64-w64-mingw32\include\_mingw_unicode.h \

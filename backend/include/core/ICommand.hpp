@@ -40,8 +40,8 @@ struct CommandContext {
         send_text("ERROR:" + operation + ":" + message);
     }
 
-    void send_data(const std::string& type, const std::string& data) const {
-        send_text("DATA:" + type + ":" + data);
+    void send_data(const std::string& type, const std::string& data, bool is_critical = true) const {
+        send_text("DATA:" + type + ":" + data, is_critical);
     }
 };
 

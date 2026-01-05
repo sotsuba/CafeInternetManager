@@ -82,11 +82,13 @@ common::EmptyResult CommandDispatcher::dispatch(
 
             // Log non-high-frequency commands
             if (!command->is_high_frequency()) {
+                /*
                 std::cout << "[CMD] " << cmd_name;
                 if (!args.empty()) {
                     std::cout << " " << args;
                 }
                 std::cout << " [CID=" << ctx.client_id << "]" << std::endl;
+                */
             }
 
             // Execute

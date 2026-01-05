@@ -98,7 +98,10 @@ export class FileManager {
 
         // File List
         const list = document.createElement("div");
-        list.className = "file-list overflow-y-auto h-[300px] text-sm font-mono";
+        list.className = "file-list overflow-y-auto text-sm font-mono";
+        list.style.height = "300px";
+
+        // console.log("📂 Rendering Files:", files.length, files);
 
         // Sort: Dirs first, then files
         const sorted = files.sort((a, b) => {

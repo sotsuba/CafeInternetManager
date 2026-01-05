@@ -1,0 +1,196 @@
+/* ================================================
+   Aurora Dark V2 - Premium Design System
+   Inspired by Linear, Vercel, Raycast
+   ================================================ */
+
+:root {
+  /* === Base Colors === */
+  --bg-base: #08080D;             /* Near-black, sophisticated */
+  --bg-elevated: #0D0D14;          /* Elevated surfaces */
+  --bg-surface: #12121B;           /* Cards, modals */
+  --bg-hover: #1A1A26;             /* Hover states */
+  --bg-active: #222230;            /* Active/pressed states */
+
+  /* Glass Effect Colors */
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --bg-glass-hover: rgba(255, 255, 255, 0.06);
+  --bg-glass-active: rgba(255, 255, 255, 0.08);
+  --bg-glass-strong: rgba(255, 255, 255, 0.12);
+
+  /* === Aurora Gradient Palette === */
+  --aurora-violet: #8B5CF6;        /* Vibrant violet */
+  --aurora-purple: #A855F7;        /* Electric purple */
+  --aurora-fuchsia: #D946EF;       /* Hot fuchsia */
+  --aurora-pink: #EC4899;          /* Vivid pink */
+  --aurora-cyan: #22D3EE;          /* Bright cyan */
+  --aurora-teal: #14B8A6;          /* Teal accent */
+  --aurora-blue: #3B82F6;          /* Classic blue */
+  --aurora-indigo: #6366F1;        /* Indigo primary */
+  --aurora-sky: #38BDF8;           /* Sky blue */
+
+  /* Neon Glow Colors */
+  --neon-purple: #B041FF;
+  --neon-cyan: #00E5FF;
+  --neon-pink: #FF3D9A;
+  --neon-blue: #6C63FF;
+
+  /* === Primary & Accent === */
+  --primary: var(--aurora-indigo);
+  --primary-hover: #818CF8;
+  --primary-active: #A5B4FC;
+  --primary-glow: rgba(99, 102, 241, 0.4);
+
+  --accent-success: #10B981;
+  --accent-success-glow: rgba(16, 185, 129, 0.4);
+  --accent-warning: #F59E0B;
+  --accent-warning-glow: rgba(245, 158, 11, 0.4);
+  --accent-error: #EF4444;
+  --accent-error-glow: rgba(239, 68, 68, 0.4);
+  --accent-info: var(--aurora-cyan);
+  --accent-info-glow: rgba(34, 211, 238, 0.4);
+
+  /* === Text Colors === */
+  --text-primary: #F8FAFC;          /* Pure white for headings */
+  --text-secondary: #CBD5E1;        /* Softer for body */
+  --text-tertiary: #94A3B8;         /* Muted text */
+  --text-muted: #64748B;            /* Very muted */
+  --text-faint: #475569;            /* Barely visible */
+
+  /* === Borders === */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --border-glow: var(--aurora-indigo);
+
+  /* === Gradient Definitions === */
+  --gradient-primary: linear-gradient(135deg, var(--aurora-indigo) 0%, var(--aurora-purple) 50%, var(--aurora-fuchsia) 100%);
+  --gradient-aurora: linear-gradient(135deg, var(--aurora-cyan) 0%, var(--aurora-purple) 50%, var(--aurora-pink) 100%);
+  --gradient-neon: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%);
+  --gradient-sunset: linear-gradient(135deg, var(--aurora-pink) 0%, var(--aurora-violet) 50%, var(--aurora-indigo) 100%);
+  --gradient-ocean: linear-gradient(135deg, var(--aurora-cyan) 0%, var(--aurora-blue) 50%, var(--aurora-indigo) 100%);
+  --gradient-surface: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-elevated) 100%);
+
+  /* === Shadows & Glows === */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
+
+  --glow-primary: 0 0 30px var(--primary-glow);
+  --glow-purple: 0 0 40px rgba(168, 85, 247, 0.35);
+  --glow-cyan: 0 0 40px rgba(34, 211, 238, 0.35);
+  --glow-pink: 0 0 40px rgba(236, 72, 153, 0.35);
+  --glow-neon: 0 0 60px var(--neon-purple), 0 0 100px var(--neon-cyan);
+
+  /* === Typography === */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  --font-display: 'Inter', sans-serif;
+
+  /* Font Sizes - Refined Scale */
+  --text-2xs: 0.625rem;   /* 10px */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 2.25rem;    /* 36px */
+  --text-5xl: 3rem;       /* 48px */
+  --text-6xl: 3.75rem;    /* 60px */
+  --text-7xl: 4.5rem;     /* 72px */
+
+  /* Font Weights */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* Line Heights */
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* Letter Spacing */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+
+  /* === Spacing === */
+  --space-px: 1px;
+  --space-0: 0;
+  --space-0-5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-2-5: 0.625rem;
+  --space-3: 0.75rem;
+  --space-3-5: 0.875rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+  --space-9: 2.25rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-14: 3.5rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+
+  /* === Border Radius === */
+  --radius-none: 0;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* === Transitions === */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+
+  --transition-fast: var(--duration-fast) var(--ease-default);
+  --transition-normal: var(--duration-normal) var(--ease-default);
+  --transition-slow: var(--duration-slow) var(--ease-default);
+  --transition-bounce: var(--duration-slow) var(--ease-bounce);
+
+  /* === Z-Index Scale === */
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-modal-backdrop: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-tooltip: 70;
+  --z-toast: 80;
+  --z-max: 9999;
+
+  /* === Backdrop Blur === */
+  --blur-sm: 4px;
+  --blur-md: 8px;
+  --blur-lg: 12px;
+  --blur-xl: 16px;
+  --blur-2xl: 24px;
+  --blur-3xl: 40px;
+}

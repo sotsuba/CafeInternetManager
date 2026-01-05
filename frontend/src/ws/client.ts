@@ -1,4 +1,4 @@
-import { buildBackendFrame, encodeText, isJpeg, parseBackendFrame, tryDecodePrintableUtf8 } from "./protocol";
+import { buildAckPacket, buildBackendFrame, encodeText, getTrafficClass, isJpeg, parseBackendFrame, stripTrafficClass, TRAFFIC_VIDEO, tryDecodePrintableUtf8 } from "./protocol";
 
 export type BackendFrameEvent =
 	| { kind: "jpeg"; backendId: number; payloadLen: number; frameBytes: number; payload: ArrayBuffer }
@@ -93,23 +93,46 @@ export class GatewayWsClient {
 
 			this.events.onBackendActive(frame.backendId);
 
-			if (isJpeg(frame.payload)) {
+			// ACK Flow Control: Get traffic class and strip from payload
+			const trafficClass = getTrafficClass(frame.payload);
+			const strippedPayload = stripTrafficClass(frame.payload);
+
+			// Check if this is a video frame (TRAFFIC_VIDEO or JPEG)
+			const isVideoFrame = trafficClass === TRAFFIC_VIDEO || isJpeg(strippedPayload);
+            // DEBUG: Log video frame receipt
+            // if (isVideoFrame) console.log(`[FE-DEBUG] Video Frame Recv: ${strippedPayload.byteLength} bytes`);
+
+			if (isVideoFrame) {
+                // Determine actual content type: JPEG or Binary (H.264)
+                const realKind = isJpeg(strippedPayload) ? "jpeg" : "binary";
+
 				this.events.onBackendFrame({
-					kind: "jpeg",
+					kind: realKind,
 					backendId: frame.backendId,
-					payloadLen: frame.payloadLen,
+					payloadLen: strippedPayload.byteLength,
 					frameBytes: buffer.byteLength,
-					payload: frame.payload,
+					payload: strippedPayload,
 				});
+
+				// ACK Flow Control: Send ACK after rendering video frame
+				// This tells Gateway we're ready for the next frame
+				// ACK Flow Control: Send ACK after rendering video frame
+				// This tells Gateway we're ready for the next frame
+				if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+					const ackPacket = buildAckPacket(this.myClientId);
+					this.ws.send(ackPacket);
+					// console.log('[WS] ACK sent for video frame');
+				}
 				return;
 			}
 
-			const text = tryDecodePrintableUtf8(frame.payload);
+			// Control messages (TRAFFIC_CONTROL) - process as text
+			const text = tryDecodePrintableUtf8(strippedPayload);
 			if (text !== null) {
 				this.events.onBackendFrame({
 					kind: "text",
 					backendId: frame.backendId,
-					payloadLen: frame.payloadLen,
+					payloadLen: strippedPayload.byteLength,
 					frameBytes: buffer.byteLength,
 					text,
 				});
@@ -117,9 +140,9 @@ export class GatewayWsClient {
 				this.events.onBackendFrame({
 					kind: "binary",
 					backendId: frame.backendId,
-					payloadLen: frame.payloadLen,
+					payloadLen: strippedPayload.byteLength,
 					frameBytes: buffer.byteLength,
-					payload: frame.payload,
+					payload: strippedPayload,
 				});
 			}
 		};
@@ -152,7 +175,9 @@ export class GatewayWsClient {
 		}
 		const payload = encodeText(message);
 		const frame = buildBackendFrame(backendId, this.myClientId, payload);
+
 		this.ws.send(frame);
+
 		return frame.byteLength;
 	}
 }

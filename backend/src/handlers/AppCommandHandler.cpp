@@ -29,7 +29,12 @@ std::unique_ptr<core::command::ICommand> AppCommandHandler::parse_command(
         return std::make_unique<ListAppsCommand>(app_manager_, true, ctx);
     }
     else if (cmd == "launch_app") {
-        return std::make_unique<LaunchAppCommand>(app_manager_, args, ctx);
+        // Strip surrounding quotes if present
+        std::string clean_args = args;
+        if (clean_args.size() >= 2 && clean_args.front() == '"' && clean_args.back() == '"') {
+             clean_args = clean_args.substr(1, clean_args.size() - 2);
+        }
+        return std::make_unique<LaunchAppCommand>(app_manager_, clean_args, ctx);
     }
     else if (cmd == "kill_process") {
         uint32_t pid = 0;

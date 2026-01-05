@@ -109,6 +109,13 @@ namespace linux_os {
         return common::Result<common::Ok>::success();
     }
 
+    void LinuxX11Streamer::stop() {
+        if (ffmpeg_pipe_) {
+            pclose(ffmpeg_pipe_);
+            ffmpeg_pipe_ = nullptr;
+        }
+    }
+
     // === Snapshot Helpers (Ported from Legacy) ===
     static std::vector<uint8_t> exec_capture(const std::string& cmd) {
         FILE* fp = popen(cmd.c_str(), "r");

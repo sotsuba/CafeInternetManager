@@ -94,14 +94,45 @@ common::Result<std::vector<interfaces::FileInfo>> WindowsFileTransfer::list_dire
 ) {
     std::wstring wpath = to_wide(path);
 
+    // ROOT ENUMERATION: If path is empty, list drives
+    if (path.empty() || path == "." || path == "/") {
+        std::vector<interfaces::FileInfo> drives;
+        DWORD mask = GetLogicalDrives();
+
+        for (char i = 0; i < 26; ++i) {
+            if (mask & (1 << i)) {
+                std::string drive_name = std::string(1, 'A' + i) + ":\\";
+
+                interfaces::FileInfo info;
+                info.name = drive_name;
+                info.path = drive_name;
+                info.is_directory = true;
+                info.is_hidden = false;
+                info.is_readonly = true;
+                info.size = 0;
+                info.modified_time = 0;
+
+                // Get free space for size (optional, but nice)
+                ULARGE_INTEGER free_bytes, total_bytes, total_free;
+                if (GetDiskFreeSpaceExA(drive_name.c_str(), &free_bytes, &total_bytes, &total_free)) {
+                    info.size = total_bytes.QuadPart; // Show total size
+                }
+
+                drives.push_back(info);
+            }
+        }
+        return common::Result<std::vector<interfaces::FileInfo>>::ok(std::move(drives));
+    }
+
     // Ensure path ends with \* for FindFirstFile
     std::wstring search_path = wpath;
-    if (!search_path.empty() && search_path.back() != L'\\') {
+    if (!search_path.empty() && search_path.back() != L'\\' && search_path.back() != L'/') {
         search_path += L'\\';
     }
     search_path += L'*';
 
     WIN32_FIND_DATAW find_data;
+
     HANDLE h_find = FindFirstFileW(search_path.c_str(), &find_data);
 
     if (h_find == INVALID_HANDLE_VALUE) {

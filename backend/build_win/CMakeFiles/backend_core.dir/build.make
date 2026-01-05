@@ -146,26 +146,11 @@ CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.s"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\CafeInternetManager\backend\src\core\GatewayConnection.cpp -o CMakeFiles\backend_core.dir\src\core\GatewayConnection.cpp.s
 
-CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj: CMakeFiles/backend_core.dir/flags.make
-CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
-CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj: D:/CafeInternetManager/backend/src/core/DiscoveryClient.cpp
-CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj -MF CMakeFiles\backend_core.dir\src\core\DiscoveryClient.cpp.obj.d -o CMakeFiles\backend_core.dir\src\core\DiscoveryClient.cpp.obj -c D:\CafeInternetManager\backend\src\core\DiscoveryClient.cpp
-
-CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.i"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\CafeInternetManager\backend\src\core\DiscoveryClient.cpp > CMakeFiles\backend_core.dir\src\core\DiscoveryClient.cpp.i
-
-CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.s"
-	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\CafeInternetManager\backend\src\core\DiscoveryClient.cpp -o CMakeFiles\backend_core.dir\src\core\DiscoveryClient.cpp.s
-
 CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj: CMakeFiles/backend_core.dir/flags.make
 CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj: D:/CafeInternetManager/backend/src/core/CommandDispatcher.cpp
 CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj -MF CMakeFiles\backend_core.dir\src\core\CommandDispatcher.cpp.obj.d -o CMakeFiles\backend_core.dir\src\core\CommandDispatcher.cpp.obj -c D:\CafeInternetManager\backend\src\core\CommandDispatcher.cpp
 
 CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.i: cmake_force
@@ -180,7 +165,7 @@ CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj: CMakeFiles/backen
 CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj: D:/CafeInternetManager/backend/src/core/PlatformRegistry.cpp
 CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj -MF CMakeFiles\backend_core.dir\src\core\PlatformRegistry.cpp.obj.d -o CMakeFiles\backend_core.dir\src\core\PlatformRegistry.cpp.obj -c D:\CafeInternetManager\backend\src\core\PlatformRegistry.cpp
 
 CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.i: cmake_force
@@ -195,7 +180,7 @@ CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj: CMakeFiles/backe
 CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj: D:/CafeInternetManager/backend/src/core/network/TcpSocket.cpp
 CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj -MF CMakeFiles\backend_core.dir\src\core\network\TcpSocket.cpp.obj.d -o CMakeFiles\backend_core.dir\src\core\network\TcpSocket.cpp.obj -c D:\CafeInternetManager\backend\src\core\network\TcpSocket.cpp
 
 CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.i: cmake_force
@@ -210,7 +195,7 @@ CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.obj: CMakeFile
 CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.obj: D:/CafeInternetManager/backend/src/core/network/PacketDispatcher.cpp
 CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.obj -MF CMakeFiles\backend_core.dir\src\core\network\PacketDispatcher.cpp.obj.d -o CMakeFiles\backend_core.dir\src\core\network\PacketDispatcher.cpp.obj -c D:\CafeInternetManager\backend\src\core\network\PacketDispatcher.cpp
 
 CMakeFiles/backend_core.dir/src/core/network/PacketDispatcher.cpp.i: cmake_force
@@ -225,7 +210,7 @@ CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.obj: CMakeFiles
 CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.obj: D:/CafeInternetManager/backend/src/handlers/MouseCommandHandler.cpp
 CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.obj -MF CMakeFiles\backend_core.dir\src\handlers\MouseCommandHandler.cpp.obj.d -o CMakeFiles\backend_core.dir\src\handlers\MouseCommandHandler.cpp.obj -c D:\CafeInternetManager\backend\src\handlers\MouseCommandHandler.cpp
 
 CMakeFiles/backend_core.dir/src/handlers/MouseCommandHandler.cpp.i: cmake_force
@@ -240,7 +225,7 @@ CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.obj: CMakeFile
 CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.obj: D:/CafeInternetManager/backend/src/handlers/StreamCommandHandler.cpp
 CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.obj -MF CMakeFiles\backend_core.dir\src\handlers\StreamCommandHandler.cpp.obj.d -o CMakeFiles\backend_core.dir\src\handlers\StreamCommandHandler.cpp.obj -c D:\CafeInternetManager\backend\src\handlers\StreamCommandHandler.cpp
 
 CMakeFiles/backend_core.dir/src/handlers/StreamCommandHandler.cpp.i: cmake_force
@@ -255,7 +240,7 @@ CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.obj: CMakeF
 CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.obj: D:/CafeInternetManager/backend/src/handlers/KeyloggerCommandHandler.cpp
 CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.obj -MF CMakeFiles\backend_core.dir\src\handlers\KeyloggerCommandHandler.cpp.obj.d -o CMakeFiles\backend_core.dir\src\handlers\KeyloggerCommandHandler.cpp.obj -c D:\CafeInternetManager\backend\src\handlers\KeyloggerCommandHandler.cpp
 
 CMakeFiles/backend_core.dir/src/handlers/KeyloggerCommandHandler.cpp.i: cmake_force
@@ -270,7 +255,7 @@ CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.obj: CMakeFiles/b
 CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.obj: D:/CafeInternetManager/backend/src/handlers/AppCommandHandler.cpp
 CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.obj -MF CMakeFiles\backend_core.dir\src\handlers\AppCommandHandler.cpp.obj.d -o CMakeFiles\backend_core.dir\src\handlers\AppCommandHandler.cpp.obj -c D:\CafeInternetManager\backend\src\handlers\AppCommandHandler.cpp
 
 CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cpp.i: cmake_force
@@ -285,7 +270,7 @@ CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj: CMakeFiles/
 CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/includes_CXX.rsp
 CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj: D:/CafeInternetManager/backend/src/handlers/FileCommandHandler.cpp
 CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj: CMakeFiles/backend_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj"
 	C:\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj -MF CMakeFiles\backend_core.dir\src\handlers\FileCommandHandler.cpp.obj.d -o CMakeFiles\backend_core.dir\src\handlers\FileCommandHandler.cpp.obj -c D:\CafeInternetManager\backend\src\handlers\FileCommandHandler.cpp
 
 CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.i: cmake_force
@@ -303,7 +288,6 @@ backend_core_OBJECTS = \
 "CMakeFiles/backend_core.dir/src/core/StreamSession.cpp.obj" \
 "CMakeFiles/backend_core.dir/src/core/GatewayProtocolV1.cpp.obj" \
 "CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.obj" \
-"CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj" \
 "CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj" \
 "CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj" \
 "CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj" \
@@ -322,7 +306,6 @@ libbackend_core.a: CMakeFiles/backend_core.dir/src/core/BroadcastBus.cpp.obj
 libbackend_core.a: CMakeFiles/backend_core.dir/src/core/StreamSession.cpp.obj
 libbackend_core.a: CMakeFiles/backend_core.dir/src/core/GatewayProtocolV1.cpp.obj
 libbackend_core.a: CMakeFiles/backend_core.dir/src/core/GatewayConnection.cpp.obj
-libbackend_core.a: CMakeFiles/backend_core.dir/src/core/DiscoveryClient.cpp.obj
 libbackend_core.a: CMakeFiles/backend_core.dir/src/core/CommandDispatcher.cpp.obj
 libbackend_core.a: CMakeFiles/backend_core.dir/src/core/PlatformRegistry.cpp.obj
 libbackend_core.a: CMakeFiles/backend_core.dir/src/core/network/TcpSocket.cpp.obj
@@ -334,7 +317,7 @@ libbackend_core.a: CMakeFiles/backend_core.dir/src/handlers/AppCommandHandler.cp
 libbackend_core.a: CMakeFiles/backend_core.dir/src/handlers/FileCommandHandler.cpp.obj
 libbackend_core.a: CMakeFiles/backend_core.dir/build.make
 libbackend_core.a: CMakeFiles/backend_core.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Linking CXX static library libbackend_core.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=D:\CafeInternetManager\backend\build_win\CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Linking CXX static library libbackend_core.a"
 	$(CMAKE_COMMAND) -P CMakeFiles\backend_core.dir\cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\backend_core.dir\link.txt --verbose=$(VERBOSE)
 

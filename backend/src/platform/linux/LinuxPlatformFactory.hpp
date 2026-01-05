@@ -25,6 +25,7 @@ public:
     std::unique_ptr<interfaces::IVideoStreamer> create_webcam_streamer() override;
     std::unique_ptr<interfaces::IKeylogger> create_keylogger() override;
     std::unique_ptr<interfaces::IAppManager> create_app_manager() override;
+    std::unique_ptr<interfaces::IFileTransfer> create_file_transfer() override;
 
     const char* platform_name() const noexcept override { return "Linux"; }
 

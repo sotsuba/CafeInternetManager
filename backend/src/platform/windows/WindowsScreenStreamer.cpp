@@ -22,39 +22,84 @@ namespace windows_os {
         int h = GetSystemMetrics(SM_CYSCREEN);
         std::string res = std::to_string(w) + "x" + std::to_string(h);
 
-        // Command to record desktop using gdigrab
-        // -f h264 - outputs raw h264 to stdout
-        // -g 30 ensures keyframe every 1s (30fps) for fast reconnect
+        // === MJPEG STREAMING ===
+        // Much more reliable than H.264 for real-time remote desktop
+        // Each frame is a standalone JPEG - no codec state corruption on drops
         std::string cmd = "ffmpeg -f gdigrab -framerate 30 -video_size " + res +
-                          " -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
-                          "-g 30 -profile:v baseline -level 3.0 -bf 0 " +
-                          "-pix_fmt yuv420p -f h264 - 2>NUL";
+                          " -i desktop -vf scale=1280:-2 -c:v mjpeg -q:v 8 " +
+                          "-f mjpeg - 2>NUL";
 
-        FILE* pipe = _popen(cmd.c_str(), "rb"); // Binary mode on Windows is CRITICAL
+        std::cout << "[Screen] Starting MJPEG stream: " << cmd << std::endl;
+
+        FILE* pipe = _popen(cmd.c_str(), "rb");
         if (!pipe) {
             return common::Result<common::Ok>::err(common::ErrorCode::EncoderError, "Failed to start ffmpeg");
         }
 
-        std::vector<uint8_t> buffer(65536);
+        // JPEG markers
+        const uint8_t soi_marker[2] = {0xFF, 0xD8}; // Start Of Image
+        const uint8_t eoi_marker[2] = {0xFF, 0xD9}; // End Of Image
+
+        std::vector<uint8_t> read_buffer(65536);
+        std::vector<uint8_t> frame_buffer;
+        frame_buffer.reserve(256 * 1024); // Pre-allocate for typical JPEG size
+
+        uint64_t pts = 0;
+        int frame_count = 0;
+
         while (!token.is_cancellation_requested()) {
-            size_t n = fread(buffer.data(), 1, buffer.size(), pipe);
+            size_t n = fread(read_buffer.data(), 1, read_buffer.size(), pipe);
             if (n <= 0) break;
 
-            std::vector<uint8_t> chunk(buffer.begin(), buffer.begin() + n);
+            // Append to frame buffer
+            frame_buffer.insert(frame_buffer.end(), read_buffer.begin(), read_buffer.begin() + n);
 
-            // Basic NALU Kind detection (Optional but good for latency)
-            common::PacketKind kind = common::PacketKind::InterFrame;
-            // Simple check for start codes 00 00 01 or 00 00 00 01
-            // ... (Simplified for brevity, assuming standard streaming)
+            // Extract complete JPEG frames
+            while (true) {
+                // Find SOI (Start of Image)
+                auto soi_it = std::search(frame_buffer.begin(), frame_buffer.end(), soi_marker, soi_marker + 2);
+                if (soi_it == frame_buffer.end()) {
+                    frame_buffer.clear(); // No SOI, discard garbage
+                    break;
+                }
 
-            static uint64_t pts = 0;
-            // TODO: Better PTS generation
+                // Find EOI (End of Image) after SOI
+                auto eoi_it = std::search(soi_it + 2, frame_buffer.end(), eoi_marker, eoi_marker + 2);
+                if (eoi_it == frame_buffer.end()) {
+                    // Incomplete frame, wait for more data
+                    // But trim any garbage before SOI
+                    if (soi_it != frame_buffer.begin()) {
+                        frame_buffer.erase(frame_buffer.begin(), soi_it);
+                    }
+                    break;
+                }
 
-            auto data_ptr = std::make_shared<const std::vector<uint8_t>>(std::move(chunk));
-            on_packet(common::VideoPacket{data_ptr, pts++, 1, kind});
+                // Found complete JPEG frame (SOI to EOI inclusive)
+                eoi_it += 2; // Include EOI bytes
+                std::vector<uint8_t> jpeg_frame(soi_it, eoi_it);
+
+                // Send frame
+                auto data_ptr = std::make_shared<const std::vector<uint8_t>>(std::move(jpeg_frame));
+                on_packet(common::VideoPacket{data_ptr, pts++, 1, common::PacketKind::KeyFrame});
+
+                frame_count++;
+                if (frame_count % 30 == 0) {
+                    std::cout << "[Screen] Sent MJPEG frame #" << frame_count << " (" << data_ptr->size() << " bytes)" << std::endl;
+                }
+
+                // Remove processed frame from buffer
+                frame_buffer.erase(frame_buffer.begin(), eoi_it);
+            }
+
+            // Prevent unbounded buffer growth (safety limit)
+            if (frame_buffer.size() > 1024 * 1024) {
+                std::cerr << "[Screen] WARNING: Frame buffer overflow, clearing" << std::endl;
+                frame_buffer.clear();
+            }
         }
 
         _pclose(pipe);
+        std::cout << "[Screen] MJPEG stream stopped. Total frames: " << frame_count << std::endl;
         return common::Result<common::Ok>::success();
     }
 

