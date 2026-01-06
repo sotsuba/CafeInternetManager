@@ -16,7 +16,7 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Optimistic local state for immediate UI feedback
@@ -28,7 +28,7 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   const streamUrl = type === 'screen' ? activeClient?.monitorFrame : activeClient?.webcamFrame;
 
   // Use optimistic state for immediate UI feedback
-  const isStreaming = localStreaming || backendState === 'active';
+  const isStreaming = localStreaming;
 
   // Sync local state with backend state
   useEffect(() => {
@@ -53,6 +53,8 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   };
 
   const handleStartRecording = () => {
+    console.log('[ScreenViewer] handleStartRecording clicked');
+    sendCommand('start_recording');
     setIsRecording(true);
     setIsPaused(false);
     setRecordingTime(0);
@@ -62,6 +64,7 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   };
 
   const handleStopRecording = () => {
+    sendCommand('stop_recording');
     setIsRecording(false);
     setIsPaused(false);
     setRecordingTime(0);
@@ -71,6 +74,7 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   };
 
   const handlePauseRecording = () => {
+    sendCommand('pause_recording');
     setIsPaused(!isPaused);
     if (!isPaused && recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current);

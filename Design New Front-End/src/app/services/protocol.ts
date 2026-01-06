@@ -4,6 +4,7 @@
 export const TRAFFIC_CONTROL = 0x01;  // Commands, Status, Info - Never drop
 export const TRAFFIC_VIDEO   = 0x02;  // Video frames - Drop if busy
 export const TRAFFIC_ACK     = 0x03;  // Frontend -> Gateway - Flow control signal
+export const TRAFFIC_FILE    = 0x04;  // File chunks - Raw binary data
 
 export interface ParsedFrame {
   payloadLen: number;

@@ -23,7 +23,7 @@ export function RemoteControl({ backendId }: RemoteControlProps) {
   const streamUrl = activeClient?.monitorFrame;
 
   // Use optimistic state for immediate UI feedback
-  const isActive = localActive || backendState === 'active';
+  const isActive = localActive;
 
   // Sync local state with backend state
   useEffect(() => {

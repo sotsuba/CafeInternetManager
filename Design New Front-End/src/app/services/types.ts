@@ -41,6 +41,7 @@ export interface ClientState {
   monitor: 'idle' | 'starting' | 'active' | 'stopping';
   webcam: 'idle' | 'starting' | 'active' | 'stopping';
   keylogger: 'idle' | 'starting' | 'active' | 'stopping';
+  fileTransfer: 'idle' | 'uploading' | 'downloading';
 }
 
 export interface KeylogEntry {
@@ -55,6 +56,7 @@ export interface Client extends Backend {
   processes: Process[];
   apps: AppInfo[];
   files: FileEntry[];
+  filesCache: Map<string, FileEntry[]>;  // Prefetched subdirectory contents
   currentPath: string;
   // Feature states
   state: ClientState;
@@ -68,4 +70,5 @@ export type ConnectionStatus = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED';
 export type BackendFrameEvent =
   | { kind: 'jpeg'; backendId: number; payload: ArrayBuffer }
   | { kind: 'text'; backendId: number; text: string }
+  | { kind: 'file'; backendId: number; payload: ArrayBuffer }
   | { kind: 'binary'; backendId: number; payload: ArrayBuffer };

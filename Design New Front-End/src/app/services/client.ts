@@ -1,13 +1,14 @@
 import {
-  buildAckPacket,
-  buildBackendFrame,
-  encodeText,
-  getTrafficClass,
-  isJpeg,
-  parseBackendFrame,
-  stripTrafficClass,
-  TRAFFIC_VIDEO,
-  tryDecodePrintableUtf8,
+    buildAckPacket,
+    buildBackendFrame,
+    encodeText,
+    getTrafficClass,
+    isJpeg,
+    parseBackendFrame,
+    stripTrafficClass,
+    TRAFFIC_FILE,
+    TRAFFIC_VIDEO,
+    tryDecodePrintableUtf8,
 } from './protocol';
 import type { BackendFrameEvent, ConnectionStatus } from './types';
 
@@ -106,6 +107,16 @@ export class GatewayWsClient {
       const trafficClass = getTrafficClass(frame.payload);
       const strippedPayload = stripTrafficClass(frame.payload);
 
+      // Handle binary file transfer (High Performance)
+      if (trafficClass === TRAFFIC_FILE) {
+        this.events.onBackendFrame({
+          kind: 'file',
+          backendId: frame.backendId,
+          payload: strippedPayload,
+        });
+        return;
+      }
+
       // Check if this is a video frame
       const isVideoFrame = trafficClass === TRAFFIC_VIDEO || isJpeg(strippedPayload);
 
@@ -166,6 +177,7 @@ export class GatewayWsClient {
    * Send text command to a specific backend
    */
   sendText(backendId: number, message: string): number {
+    console.log(`[GatewayWsClient] sendText: to backend ${backendId}, message: "${message}"`);
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.events.onLog('⚠️ Cannot send, not connected.');
       return 0;
