@@ -53,8 +53,8 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   };
 
   const handleStartRecording = () => {
-    console.log('[ScreenViewer] handleStartRecording clicked');
-    sendCommand('start_recording');
+    console.log(`[ScreenViewer] handleStartRecording clicked for ${type}`);
+    sendCommand(`start_recording ${type}`);
     setIsRecording(true);
     setIsPaused(false);
     setRecordingTime(0);
@@ -64,7 +64,8 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   };
 
   const handleStopRecording = () => {
-    sendCommand('stop_recording');
+    console.log(`[ScreenViewer] handleStopRecording clicked for ${type}`);
+    sendCommand(`stop_recording ${type}`);
     setIsRecording(false);
     setIsPaused(false);
     setRecordingTime(0);
@@ -74,7 +75,8 @@ export function ScreenViewer({ type, backendId }: ScreenViewerProps) {
   };
 
   const handlePauseRecording = () => {
-    sendCommand('pause_recording');
+    console.log(`[ScreenViewer] handlePauseRecording clicked for ${type}`);
+    sendCommand(`pause_recording ${type}`);
     setIsPaused(!isPaused);
     if (!isPaused && recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current);
