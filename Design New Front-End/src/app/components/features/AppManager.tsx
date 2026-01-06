@@ -25,6 +25,9 @@ export function AppManager({ backendId }: AppManagerProps) {
   const [showLauncher, setShowLauncher] = useState(false);
   const [launcherQuery, setLauncherQuery] = useState('');
 
+  const [optimisticRunning, setOptimisticRunning] = useState<Set<string>>(new Set());
+  const [optimisticStopped, setOptimisticStopped] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     sendCommand('list_apps');
     sendCommand('list_process');
@@ -33,11 +36,49 @@ export function AppManager({ backendId }: AppManagerProps) {
   const apps = activeClient?.apps || [];
   const processes = activeClient?.processes || [];
 
+  // Cleanup optimistic state when actual state matches
+  useEffect(() => {
+    const binNames = processes.map(p => p.name.toLowerCase());
+    const cmdLines = processes.map(p => p.cmd.toLowerCase());
+
+    setOptimisticRunning(prev => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const exec of prev) {
+        const binName = exec.split(/[\\/]/).pop()?.split(' ')[0]?.toLowerCase();
+        if (binName && (binNames.includes(binName) || cmdLines.some(c => c.includes(binName)))) {
+          next.delete(exec);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    setOptimisticStopped(prev => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const exec of prev) {
+        const binName = exec.split(/[\\/]/).pop()?.split(' ')[0]?.toLowerCase();
+        if (!binName || (!binNames.includes(binName) && !cmdLines.some(c => c.includes(binName)))) {
+          next.delete(exec);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [processes]);
+
   const isAppRunning = (appExec: string) => {
+    if (optimisticRunning.has(appExec)) return true;
+    if (optimisticStopped.has(appExec)) return false;
+
     const binName = appExec.split(/[\\/]/).pop()?.split(' ')[0]?.toLowerCase();
     if (!binName) return false;
     return processes.some(p => p.name.toLowerCase().includes(binName) || p.cmd.toLowerCase().includes(binName));
   };
+
+  const isAppStopping = (appExec: string) => optimisticStopped.has(appExec);
+  const isAppStarting = (appExec: string) => optimisticRunning.has(appExec);
 
   const getAppPids = (appExec: string) => {
     const binName = appExec.split(/[\\/]/).pop()?.split(' ')[0]?.toLowerCase();
@@ -56,17 +97,51 @@ export function AppManager({ backendId }: AppManagerProps) {
 
   const handleStopApp = (exec: string) => {
     const pids = getAppPids(exec);
-    if (pids.length > 0 && confirm(`Kill all instances of this app (${pids.length} process)?`)) {
+    if (pids.length > 0) {
+      if (!confirm(`Kill all instances of this app (${pids.length} process)?`)) return;
+
+      setOptimisticStopped(prev => new Set(prev).add(exec));
+      setOptimisticRunning(prev => {
+        const next = new Set(prev);
+        next.delete(exec);
+        return next;
+      });
+
       pids.forEach(pid => sendCommand(`kill_process ${pid}`));
       setTimeout(() => sendCommand('list_process'), 1000);
+
+      // Safety timeout
+      setTimeout(() => {
+        setOptimisticStopped(prev => {
+          const next = new Set(prev);
+          next.delete(exec);
+          return next;
+        });
+      }, 5000);
     }
   };
 
   const handleStartApp = (exec: string) => {
+    setOptimisticRunning(prev => new Set(prev).add(exec));
+    setOptimisticStopped(prev => {
+      const next = new Set(prev);
+      next.delete(exec);
+      return next;
+    });
+
     sendCommand(`launch_app "${exec}"`);
     setShowLauncher(false);
     setLauncherQuery('');
     setTimeout(() => sendCommand('list_process'), 1000);
+
+    // Safety timeout
+    setTimeout(() => {
+      setOptimisticRunning(prev => {
+        const next = new Set(prev);
+        next.delete(exec);
+        return next;
+      });
+    }, 5000);
   };
 
   const handleRefresh = () => {
@@ -129,6 +204,7 @@ export function AppManager({ backendId }: AppManagerProps) {
             {runningApps.map((app, index) => (
               <motion.div
                 key={app.id}
+                layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(index * 0.05, 0.3) }}
@@ -142,20 +218,27 @@ export function AppManager({ backendId }: AppManagerProps) {
                       {app.exec}
                     </p>
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                        Running
+                      <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                        isAppStarting(app.exec)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                          isAppStarting(app.exec) ? 'bg-blue-500' : 'bg-green-500'
+                        }`} />
+                        {isAppStarting(app.exec) ? 'Starting...' : 'Running'}
                       </span>
                     </div>
                   </div>
                   <Button
                     onClick={() => handleStopApp(app.exec)}
+                    disabled={isAppStopping(app.exec)}
                     variant="outline"
                     size="sm"
                     className="border-red-300 text-red-600 hover:bg-red-50"
                   >
                     <Square className="w-4 h-4 mr-1" />
-                    Stop
+                    {isAppStopping(app.exec) ? 'Stopping...' : 'Stop'}
                   </Button>
                 </div>
               </motion.div>
@@ -177,6 +260,7 @@ export function AppManager({ backendId }: AppManagerProps) {
             {availableApps.map((app, index) => (
               <motion.div
                 key={app.id}
+                layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(index * 0.05, 0.3) }}
@@ -189,18 +273,23 @@ export function AppManager({ backendId }: AppManagerProps) {
                     <p className="text-sm text-gray-400 font-mono truncate mb-2">
                       {app.exec}
                     </p>
-                    <span className="inline-block text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
-                      Stopped
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full ${
+                      isAppStopping(app.exec)
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {isAppStopping(app.exec) ? 'Stopping...' : 'Stopped'}
                     </span>
                   </div>
                   <Button
                     onClick={() => handleStartApp(app.exec)}
+                    disabled={isAppStarting(app.exec)}
                     variant="outline"
                     size="sm"
                     className="border-green-300 text-green-600 hover:bg-green-50"
                   >
                     <Play className="w-4 h-4 mr-1" />
-                    Start
+                    {isAppStarting(app.exec) ? 'Starting...' : 'Start'}
                   </Button>
                 </div>
               </motion.div>
@@ -208,6 +297,7 @@ export function AppManager({ backendId }: AppManagerProps) {
           </div>
         </div>
       </div>
+
 
       {/* App Launcher Dialog */}
       <Dialog open={showLauncher} onOpenChange={setShowLauncher}>
@@ -245,8 +335,10 @@ export function AppManager({ backendId }: AppManagerProps) {
                       </p>
                     </div>
                     {isAppRunning(app.exec) && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                        Running
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        isAppStarting(app.exec) ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                      }`}>
+                        {isAppStarting(app.exec) ? 'Starting...' : 'Running'}
                       </span>
                     )}
                   </motion.button>

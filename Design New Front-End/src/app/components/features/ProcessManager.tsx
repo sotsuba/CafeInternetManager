@@ -20,13 +20,44 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
   const [showLauncher, setShowLauncher] = useState(false);
   const [launchCommand, setLaunchCommand] = useState('');
 
+  const [optimisticallyKilled, setOptimisticallyKilled] = useState<Set<number>>(new Set());
+  const [optimisticallyLaunched, setOptimisticallyLaunched] = useState<string[]>([]);
+
   useEffect(() => {
     sendCommand('list_process');
   }, [backendId, sendCommand]);
 
   const processes = activeClient?.processes || [];
 
+  // Cleanup optimistic state when actual processes reflect changes
+  useEffect(() => {
+    if (processes.length > 0) {
+      const pids = new Set(processes.map(p => p.pid));
+
+      setOptimisticallyKilled(prev => {
+        const next = new Set(prev);
+        let changed = false;
+        for (const pid of prev) {
+          if (!pids.has(pid)) {
+            next.delete(pid);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+
+      setOptimisticallyLaunched(prev => {
+        const next = prev.filter(name => {
+          const lowerName = name.toLowerCase();
+          return !processes.some(p => p.name.toLowerCase().includes(lowerName) || p.cmd.toLowerCase().includes(lowerName));
+        });
+        return next.length !== prev.length ? next : prev;
+      });
+    }
+  }, [processes]);
+
   const filteredProcesses = processes
+    .filter((p) => !optimisticallyKilled.has(p.pid))
     .filter((p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.pid.toString().includes(searchQuery)
@@ -62,17 +93,43 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
   const handleKillSelected = () => {
     if (selectedProcesses.size === 0) return;
     if (!confirm(`Kill ${selectedProcesses.size} selected process(es)?`)) return;
-    selectedProcesses.forEach((pidStr) => sendCommand(`kill_process ${pidStr}`));
+
+    const pidsToKill = Array.from(selectedProcesses).map(Number);
+    setOptimisticallyKilled(prev => {
+      const next = new Set(prev);
+      pidsToKill.forEach(pid => next.add(pid));
+      return next;
+    });
+
+    pidsToKill.forEach((pid) => sendCommand(`kill_process ${pid}`));
     setSelectedProcesses(new Set());
     setTimeout(() => sendCommand('list_process'), 500);
+
+    // Safety timeout
+    setTimeout(() => {
+      setOptimisticallyKilled(prev => {
+        const next = new Set(prev);
+        pidsToKill.forEach(pid => next.delete(pid));
+        return next;
+      });
+    }, 5000);
   };
 
   const handleLaunchProcess = () => {
     if (!launchCommand.trim()) return;
-    sendCommand(`launch_process "${launchCommand.trim()}"`);
+    const cmd = launchCommand.trim();
+
+    setOptimisticallyLaunched(prev => [...prev, cmd]);
+
+    sendCommand(`launch_process "${cmd}"`);
     setShowLauncher(false);
     setLaunchCommand('');
     setTimeout(() => sendCommand('list_process'), 1000);
+
+    // Safety timeout
+    setTimeout(() => {
+      setOptimisticallyLaunched(prev => prev.filter(c => c !== cmd));
+    }, 8000);
   };
 
   const handleRefresh = () => {
@@ -179,52 +236,74 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
 
         {/* Table Body */}
         <div className="flex-1 overflow-y-auto">
-          {filteredProcesses.length === 0 ? (
+          {filteredProcesses.length === 0 && optimisticallyLaunched.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               {searchQuery ? 'No processes match your search' : 'No processes found. Click refresh.'}
             </div>
           ) : (
-            filteredProcesses.map((process, index) => (
-              <motion.div
-                key={process.pid}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: Math.min(index * 0.02, 0.5) }}
-                className={`
-                  px-4 py-3 flex items-center gap-4 border-b border-gray-100 hover:bg-gray-50 transition-colors
-                  ${selectedProcesses.has(process.pid.toString()) ? 'bg-blue-50' : ''}
-                `}
-              >
-                <div className="w-10">
-                  <Checkbox
-                    checked={selectedProcesses.has(process.pid.toString())}
-                    onCheckedChange={() => handleSelectProcess(process.pid)}
-                  />
+            <>
+              {/* Optimistically Launched */}
+              {optimisticallyLaunched.map((cmd, index) => (
+                <div
+                  key={`launching-${index}`}
+                  className="px-4 py-3 flex items-center gap-4 border-b border-gray-100 bg-blue-50/30 animate-pulse"
+                >
+                  <div className="w-10" />
+                  <div className="flex-1 font-mono text-sm truncate opacity-60">{cmd}</div>
+                  <div className="w-24 font-mono text-sm text-gray-400">---</div>
+                  <div className="w-24 text-right text-gray-400">---</div>
+                  <div className="w-24 text-right text-sm text-gray-400">---</div>
+                  <div className="w-28 text-center">
+                    <span className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                      Starting...
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 font-mono text-sm truncate">{process.name}</div>
-                <div className="w-24 font-mono text-sm text-gray-600">{process.pid}</div>
-                <div className="w-24 text-right">
-                  <span className={`
-                    inline-block px-2 py-1 rounded text-sm
-                    ${(process.cpu || 0) > 10 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}
-                  `}>
-                    {(process.cpu || 0).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="w-24 text-right text-sm text-gray-600">
-                  {process.memory || 0} MB
-                </div>
-                <div className="w-28 text-center">
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                    process.status === 'Running' ? 'bg-green-100 text-green-700' :
-                    process.status === 'Sleeping' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {process.status || 'Running'}
-                  </span>
-                </div>
-              </motion.div>
-            ))
+              ))}
+
+              {/* Actual Processes */}
+              {filteredProcesses.map((process, index) => (
+                <motion.div
+                  key={process.pid}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: Math.min(index * 0.02, 0.5) }}
+                  className={`
+                    px-4 py-3 flex items-center gap-4 border-b border-gray-100 hover:bg-gray-50 transition-colors
+                    ${selectedProcesses.has(process.pid.toString()) ? 'bg-blue-50' : ''}
+                  `}
+                >
+                  <div className="w-10">
+                    <Checkbox
+                      checked={selectedProcesses.has(process.pid.toString())}
+                      onCheckedChange={() => handleSelectProcess(process.pid)}
+                    />
+                  </div>
+                  <div className="flex-1 font-mono text-sm truncate">{process.name}</div>
+                  <div className="w-24 font-mono text-sm text-gray-600">{process.pid}</div>
+                  <div className="w-24 text-right">
+                    <span className={`
+                      inline-block px-2 py-1 rounded text-sm
+                      ${(process.cpu || 0) > 10 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}
+                    `}>
+                      {(process.cpu || 0).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="w-24 text-right text-sm text-gray-600">
+                    {process.memory || 0} MB
+                  </div>
+                  <div className="w-28 text-center">
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                      process.status === 'Running' ? 'bg-green-100 text-green-700' :
+                      process.status === 'Sleeping' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {process.status || 'Running'}
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </>
           )}
         </div>
       </div>

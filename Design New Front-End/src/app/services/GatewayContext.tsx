@@ -18,6 +18,12 @@ interface GatewayContextValue {
   // Commands
   sendCommand: (command: string) => void;
   sendCommandTo: (backendId: number, command: string) => void;
+
+  // Optimistic Cache Updates
+  addFileToCache: (path: string, file: FileEntry) => void;
+  removeFileFromCache: (path: string, fileName: string) => void;
+  renameFileInCache: (path: string, oldName: string, newName: string, newPath: string) => void;
+  invalidateCache: (path: string) => void;
 }
 
 const GatewayContext = createContext<GatewayContextValue | null>(null);
@@ -457,6 +463,94 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
     }
   }, []);
 
+  // === OPTIMISTIC CACHE UPDATE FUNCTIONS ===
+
+  // Add a new file/folder to cache (for upload, mkdir)
+  const addFileToCache = useCallback((dirPath: string, file: FileEntry) => {
+    if (!activeClientId) return;
+    setClients(prev => {
+      const newMap = new Map(prev);
+      const client = newMap.get(activeClientId);
+      if (client) {
+        const newCache = new Map(client.filesCache);
+        const existing = newCache.get(dirPath) || [];
+        // Avoid duplicates
+        if (!existing.find(f => f.path === file.path)) {
+          newCache.set(dirPath, [...existing, file]);
+        }
+        // Also update current files if viewing this directory
+        const updatedClient = {
+          ...client,
+          filesCache: newCache,
+          files: client.currentPath === dirPath ? [...existing, file] : client.files,
+        };
+        newMap.set(activeClientId, updatedClient);
+      }
+      return newMap;
+    });
+  }, [activeClientId]);
+
+  // Remove a file/folder from cache (for delete)
+  const removeFileFromCache = useCallback((dirPath: string, fileName: string) => {
+    if (!activeClientId) return;
+    setClients(prev => {
+      const newMap = new Map(prev);
+      const client = newMap.get(activeClientId);
+      if (client) {
+        const newCache = new Map(client.filesCache);
+        const existing = newCache.get(dirPath) || [];
+        const filtered = existing.filter(f => f.name !== fileName);
+        newCache.set(dirPath, filtered);
+        const updatedClient = {
+          ...client,
+          filesCache: newCache,
+          files: client.currentPath === dirPath ? filtered : client.files,
+        };
+        newMap.set(activeClientId, updatedClient);
+      }
+      return newMap;
+    });
+  }, [activeClientId]);
+
+  // Rename a file/folder in cache
+  const renameFileInCache = useCallback((dirPath: string, oldName: string, newName: string, newPath: string) => {
+    if (!activeClientId) return;
+    setClients(prev => {
+      const newMap = new Map(prev);
+      const client = newMap.get(activeClientId);
+      if (client) {
+        const newCache = new Map(client.filesCache);
+        const existing = newCache.get(dirPath) || [];
+        const updated = existing.map(f =>
+          f.name === oldName ? { ...f, name: newName, path: newPath } : f
+        );
+        newCache.set(dirPath, updated);
+        const updatedClient = {
+          ...client,
+          filesCache: newCache,
+          files: client.currentPath === dirPath ? updated : client.files,
+        };
+        newMap.set(activeClientId, updatedClient);
+      }
+      return newMap;
+    });
+  }, [activeClientId]);
+
+  // Invalidate cache for a specific path (force refresh)
+  const invalidateCache = useCallback((path: string) => {
+    if (!activeClientId) return;
+    setClients(prev => {
+      const newMap = new Map(prev);
+      const client = newMap.get(activeClientId);
+      if (client) {
+        const newCache = new Map(client.filesCache);
+        newCache.delete(path);
+        newMap.set(activeClientId, { ...client, filesCache: newCache });
+      }
+      return newMap;
+    });
+  }, [activeClientId]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -478,6 +572,11 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
     activeClient,
     sendCommand,
     sendCommandTo,
+    // Optimistic cache functions
+    addFileToCache,
+    removeFileFromCache,
+    renameFileInCache,
+    invalidateCache,
   };
 
   return (

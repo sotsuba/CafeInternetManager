@@ -21,7 +21,7 @@ interface FileExplorerProps {
 }
 
 export function FileExplorer({ backendId }: FileExplorerProps) {
-  const { activeClient, sendCommand, wsClient } = useGateway();
+  const { activeClient, sendCommand, wsClient, addFileToCache, removeFileFromCache, renameFileInCache } = useGateway();
   const [currentPath, setCurrentPath] = useState('.');
   const [selectedFile, setSelectedFile] = useState<FileEntry | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,10 +104,17 @@ export function FileExplorer({ backendId }: FileExplorerProps) {
       const sendNextChunk = () => {
         if (offset >= bytes.length) {
           wsClient.sendText(activeClient.id, `file_upload_end ${targetPath}`);
-          setTimeout(() => {
-            handleRefresh();
-            setUploadProgress(null);
-          }, 500);
+
+          // Optimistic update: add uploaded file to cache
+          const newFile: FileEntry = {
+            name: file.name,
+            type: 'file',
+            path: targetPath,
+            size: bytes.length,
+            extension: file.name.includes('.') ? file.name.split('.').pop() : undefined,
+          };
+          addFileToCache(currentPath, newFile);
+          setUploadProgress(null);
           return;
         }
 
@@ -130,31 +137,49 @@ export function FileExplorer({ backendId }: FileExplorerProps) {
 
   const handleMkdir = () => {
     const name = prompt('New Folder Name:');
-    if (name) {
+    if (name && name.trim()) {
       const slash = currentPath.includes('/') ? '/' : '\\';
-      const path = currentPath === '.' ? name : currentPath + (currentPath.endsWith(slash) ? '' : slash) + name;
-      sendCommand(`file_mkdir ${path}`);
-      setTimeout(handleRefresh, 500);
+      const fullPath = currentPath === '.' ? name : currentPath + (currentPath.endsWith(slash) ? '' : slash) + name;
+
+      // Optimistic update: add to cache immediately
+      const newFolder: FileEntry = {
+        name: name.trim(),
+        type: 'folder',
+        path: fullPath,
+        size: 0,
+      };
+      addFileToCache(currentPath, newFolder);
+
+      // Then send command to backend
+      sendCommand(`file_mkdir ${fullPath}`);
     }
   };
 
   const handleDelete = () => {
     if (selectedFile && confirm(`Delete ${selectedFile.name}?`)) {
-      sendCommand(`file_delete ${selectedFile.path}`);
+      // Optimistic update: remove from cache immediately
+      removeFileFromCache(currentPath, selectedFile.name);
       setSelectedFile(null);
-      setTimeout(handleRefresh, 500);
+
+      // Then send command to backend
+      sendCommand(`file_delete ${selectedFile.path}`);
     }
   };
 
   const handleRename = () => {
     if (selectedFile) {
       const newName = prompt('Rename to:', selectedFile.name);
-      if (newName && newName !== selectedFile.name) {
+      if (newName && newName !== selectedFile.name && newName.trim()) {
         const dirname = selectedFile.path.substring(0, selectedFile.path.lastIndexOf(selectedFile.path.includes('/') ? '/' : '\\'));
         const slash = selectedFile.path.includes('/') ? '/' : '\\';
-        const newPath = dirname ? dirname + slash + newName : newName;
+        const newPath = dirname ? dirname + slash + newName.trim() : newName.trim();
+
+        // Optimistic update: rename in cache immediately
+        renameFileInCache(currentPath, selectedFile.name, newName.trim(), newPath);
+        setSelectedFile(null);
+
+        // Then send command to backend
         sendCommand(`file_rename ${selectedFile.path} ${newPath}`);
-        setTimeout(handleRefresh, 500);
       }
     }
   };
