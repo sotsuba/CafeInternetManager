@@ -189,7 +189,6 @@ CafeInternetManager/
 │   └── package.json
 ├── machines.json               # WOL configuration
 ├── docker-compose.yml          # Docker deployment
-├── wol.py                      # Wake-on-LAN script
 ├── setup_linux.sh              # Linux setup script
 ├── run_gateway.sh              # Gateway startup script
 ├── LICENSE                     # MIT License
@@ -216,24 +215,6 @@ CafeInternetManager/
 | `list_directory:<path>` | Liệt kê file/folder |
 | `download_file:<path>` | Tải file về |
 | `shutdown` / `restart` / `lock` | Điều khiển hệ thống |
-
----
-
-## ⚙️ Cấu Hình
-
-### machines.json (Wake-on-LAN)
-
-```json
-{
-  "machines": [
-    {
-      "name": "PC-01",
-      "mac": "AA:BB:CC:DD:EE:01",
-      "ip": "192.168.1.101"
-    }
-  ]
-}
-```
 
 ---
 
