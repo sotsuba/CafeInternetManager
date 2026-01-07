@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://reactjs.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey)](.)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 </div>
 
@@ -38,10 +38,10 @@ CafeInternetManager là giải pháp hoàn chỉnh để quản lý từ xa các
 - **Process Manager** — Xem danh sách tiến trình (CPU, RAM usage), kill process
 - **Remote Control** — Input chuột/bàn phím từ xa
 - **System Control** — Shutdown, restart, lock máy từ xa
-- **File Explorer** — Duyệt file trên máy client
+- **File Explorer** — Duyệt và tải file trên máy client
 
 ### 🔌 Kết Nối & Tiện Ích
-- **Auto-Discovery** — Tự động phát hiện backend trong mạng LAN
+- **Auto-Discovery** — Backend quảng bá UDP, Gateway tự phát hiện
 - **Wake-on-LAN** — Bật máy từ xa qua mạng
 - **Persistent Connection** — Duy trì kết nối WebSocket ổn định
 - **Multi-client Support** — Quản lý nhiều máy cùng lúc
@@ -54,6 +54,7 @@ CafeInternetManager là giải pháp hoàn chỉnh để quản lý từ xa các
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                           FRONTEND (Web UI)                              │
 │              React 18 + TypeScript + Vite + TailwindCSS                  │
+│                         http://localhost:5173                            │
 └────────────────────────────────┬────────────────────────────────────────┘
                                  │ WebSocket (Port 9002)
 ┌────────────────────────────────▼────────────────────────────────────────┐
@@ -84,48 +85,39 @@ CafeInternetManager là giải pháp hoàn chỉnh để quản lý từ xa các
 
 ---
 
-## 🚀 Cài Đặt
+## 🚀 Cài Đặt & Build
 
 ### Yêu Cầu
 
 | Component | Requirements |
 |:----------|:-------------|
-| **Backend** | C++17 compiler, CMake 3.16+, FFmpeg |
-| **Gateway** | C compiler, CMake, pthreads |
-| **Frontend** | Node.js 18+, npm/pnpm |
+| **Backend** | C++17 compiler (MinGW/GCC), CMake 3.16+, FFmpeg |
+| **Gateway** | C compiler (GCC), CMake |
+| **Frontend** | Node.js 18+, npm |
 
-### Build Backend (Windows)
-
-```powershell
-cd backend
-mkdir build_win && cd build_win
-cmake -G "MinGW Makefiles" ..
-cmake --build . --config Release
-```
-
-### Build Backend (Linux)
+### Build Backend
 
 ```bash
 cd backend
+
+# Windows (MinGW)
+mkdir build_win && cd build_win
+cmake -G "MinGW Makefiles" ..
+cmake --build . --config Release
+
+# Linux
 mkdir build_linux && cd build_linux
 cmake ..
 make -j$(nproc)
 ```
 
-### Build Gateway
+### Build Gateway (Linux)
 
 ```bash
-# Linux
 cd gateway
 mkdir build && cd build
 cmake ..
 make
-
-# Windows (MinGW)
-cd gateway-win
-mkdir build_mingw && cd build_mingw
-cmake -G "MinGW Makefiles" ..
-cmake --build .
 ```
 
 ### Setup Frontend
@@ -140,18 +132,18 @@ npm run dev
 
 ## 📖 Sử Dụng
 
-### 1. Khởi động Gateway
+### 1. Khởi động Gateway (trên server)
 
 ```bash
-# Mặc định: WS port 9002, UDP port 9003, Backend port 9001
-./gateway 9002 9003 9001
+./run_gateway.sh
+# Hoặc: ./gateway 9002 9003 9001
 ```
 
-### 2. Khởi động Backend trên máy client
+### 2. Khởi động Backend (trên máy client)
 
 ```bash
 # Windows
-backend.exe
+./backend.exe
 
 # Linux (cần sudo cho một số tính năng)
 sudo ./backend
@@ -168,11 +160,9 @@ npm run dev
 ### 4. Wake-on-LAN
 
 ```bash
-# Wake một máy
-python wol.py AA:BB:CC:DD:EE:FF
-
-# Wake tất cả máy từ machines.json
-python wol.py --all
+python wol.py AA:BB:CC:DD:EE:FF      # Wake một máy
+python wol.py --all                   # Wake tất cả từ machines.json
+python wol.py --list                  # Liệt kê máy đã cấu hình
 ```
 
 ---
@@ -181,24 +171,34 @@ python wol.py --all
 
 ```
 CafeInternetManager/
-├── backend/                 # C++17 Agent
-│   ├── include/             # Header files
-│   ├── src/                 # Source files
-│   │   ├── core/            # Core logic (Server, CommandRegistry)
-│   │   ├── platform/        # Platform-specific (Windows/Linux)
-│   │   └── commands/        # Command handlers
-│   └── CMakeLists.txt
-├── gateway/                 # C Gateway (Linux)
-├── gateway-win/             # C Gateway (Windows)
-├── Design New Front-End/    # React Frontend
+├── backend/                    # C++17 Backend Agent
+│   ├── include/                # Header files
 │   ├── src/
-│   │   ├── components/      # UI Components
-│   │   ├── pages/           # Page components
-│   │   ├── context/         # React contexts
-│   │   └── services/        # WebSocket client
+│   │   ├── core/               # Server, CommandRegistry, StreamSession
+│   │   ├── handlers/           # Command handlers
+│   │   ├── platform/
+│   │   │   ├── windows/        # Windows implementations
+│   │   │   └── linux/          # Linux implementations
+│   │   └── main.cpp
+│   └── CMakeLists.txt
+├── gateway/                    # C Gateway (Linux)
+│   ├── include/
+│   ├── src/
+│   └── CMakeLists.txt
+├── Design New Front-End/       # React Frontend
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── components/     # UI Components
+│   │   │   ├── pages/          # Page components
+│   │   │   └── services/       # WebSocket client
+│   │   └── styles/
 │   └── package.json
-├── machines.json            # WOL configuration
-├── docker-compose.yml       # Docker deployment
+├── machines.json               # WOL configuration
+├── docker-compose.yml          # Docker deployment
+├── wol.py                      # Wake-on-LAN script
+├── setup_linux.sh              # Linux setup script
+├── run_gateway.sh              # Gateway startup script
+├── LICENSE                     # MIT License
 └── README.md
 ```
 
@@ -206,46 +206,61 @@ CafeInternetManager/
 
 ## 🔧 WebSocket Commands
 
-| Command | Description |
-|:--------|:------------|
+| Command | Mô tả |
+|:--------|:------|
 | `ping` | Health check |
 | `start_screen_stream` | Bắt đầu stream màn hình |
 | `start_webcam_stream` | Bắt đầu stream webcam |
-| `stop_stream` | Dừng stream hiện tại |
+| `stop_stream` | Dừng stream |
 | `capture_screen` | Chụp ảnh màn hình |
 | `capture_webcam` | Chụp ảnh webcam |
 | `start_recording` | Bắt đầu ghi hình |
 | `stop_recording` | Dừng ghi và gửi file |
 | `list_process` | Liệt kê tiến trình |
-| `kill_process:<PID>` | Kill process theo PID |
+| `kill_process:<PID>` | Kill process |
 | `launch_process:<path>` | Khởi chạy ứng dụng |
 | `list_directory:<path>` | Liệt kê file/folder |
 | `download_file:<path>` | Tải file về |
-| `upload_file` | Upload file lên |
-| `shutdown` | Tắt máy |
-| `restart` | Khởi động lại |
-| `lock` | Khóa màn hình |
+| `shutdown` / `restart` / `lock` | Điều khiển hệ thống |
 
 ---
 
-## 🔒 Bảo Mật
+## ⚙️ Cấu Hình
 
-> ⚠️ **Lưu ý**: Hệ thống này được thiết kế cho mạng nội bộ (LAN). Không nên expose ra Internet mà không có các biện pháp bảo mật bổ sung.
+### machines.json (Wake-on-LAN)
+
+```json
+{
+  "machines": [
+    {
+      "name": "PC-01",
+      "mac": "AA:BB:CC:DD:EE:01",
+      "ip": "192.168.1.101"
+    }
+  ]
+}
+```
+
+---
+
+## 🔒 Lưu Ý Bảo Mật
+
+> ⚠️ Hệ thống được thiết kế cho **mạng nội bộ (LAN)**. Không nên expose ra Internet mà không có các biện pháp bảo mật bổ sung (VPN, firewall, authentication).
 
 ---
 
 ## 📄 License
 
-MIT License - Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
+Dự án được phân phối dưới giấy phép **MIT License**. Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
 
 ---
 
 ## 👥 Đóng Góp
 
 1. Fork repository
-2. Tạo feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
+2. Tạo feature branch (`git checkout -b feature/new-feature`)
+3. Commit changes (`git commit -m 'Add new feature'`)
+4. Push to branch (`git push origin feature/new-feature`)
 5. Mở Pull Request
 
 ---
