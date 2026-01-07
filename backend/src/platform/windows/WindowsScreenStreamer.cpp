@@ -18,16 +18,20 @@ namespace windows_os {
         running_ = true;
         current_token_ = token;
 
-        int w = GetSystemMetrics(SM_CXSCREEN);
-        int h = GetSystemMetrics(SM_CYSCREEN);
+        // Use GetDeviceCaps to get true physical resolution, avoiding DPI scaling cropping
+        HDC hdc = GetDC(NULL);
+        int w = GetDeviceCaps(hdc, DESKTOPHORZRES);
+        int h = GetDeviceCaps(hdc, DESKTOPVERTRES);
+        ReleaseDC(NULL, hdc);
+
         std::string res = std::to_string(w) + "x" + std::to_string(h);
 
         // === MJPEG STREAMING ===
         // Much more reliable than H.264 for real-time remote desktop
         // Each frame is a standalone JPEG - no codec state corruption on drops
+        // NOTE: No scaling - capture full screen resolution to avoid cropping
         std::string cmd = "ffmpeg -f gdigrab -framerate 30 -video_size " + res +
-                          " -i desktop -vf scale=1280:-2 -c:v mjpeg -q:v 8 " +
-                          "-f mjpeg - 2>NUL";
+                          " -i desktop -c:v mjpeg -q:v 8 -f mjpeg - 2>NUL";
 
         std::cout << "[Screen] Starting MJPEG stream: " << cmd << std::endl;
 
@@ -110,9 +114,11 @@ namespace windows_os {
     }
 
     common::Result<common::RawFrame> WindowsScreenStreamer::capture_snapshot() {
-        // Get screen dimensions
-        int width = GetSystemMetrics(SM_CXSCREEN);
-        int height = GetSystemMetrics(SM_CYSCREEN);
+        // Use GetDeviceCaps to get true physical resolution
+        HDC hTempDC = GetDC(NULL);
+        int width = GetDeviceCaps(hTempDC, DESKTOPHORZRES);
+        int height = GetDeviceCaps(hTempDC, DESKTOPVERTRES);
+        ReleaseDC(NULL, hTempDC);
 
         if (width <= 0 || height <= 0) {
             return common::Result<common::RawFrame>::err(
@@ -210,6 +216,81 @@ namespace windows_os {
         frame.format = "rgb";
 
         return common::Result<common::RawFrame>::ok(std::move(frame));
+    }
+
+    common::Result<uint32_t> WindowsScreenStreamer::start_recording(const std::string& output_path) {
+        std::lock_guard<std::mutex> lock(recording_mutex_);
+
+        if (recording_.load()) {
+            return common::Result<uint32_t>::err(
+                common::ErrorCode::Unknown, "Already recording");
+        }
+
+        HDC hdc = GetDC(NULL);
+        int w = GetDeviceCaps(hdc, DESKTOPHORZRES);
+        int h = GetDeviceCaps(hdc, DESKTOPVERTRES);
+        ReleaseDC(NULL, hdc);
+
+        std::string res = std::to_string(w) + "x" + std::to_string(h);
+
+        recording_path_ = output_path;
+
+        // Record to MP4 file using ffmpeg
+        std::string cmd = "ffmpeg -y -f gdigrab -framerate 30 -video_size " + res +
+                          " -i desktop -c:v libx264 -preset ultrafast -crf 23 " +
+                          "-pix_fmt yuv420p \"" + output_path + "\" 2>NUL";
+
+        std::cout << "[Screen] Starting recording: " << cmd << std::endl;
+
+        recording_pipe_ = _popen(cmd.c_str(), "w");
+        if (!recording_pipe_) {
+            std::cerr << "[WindowsScreenStreamer] CRITICAL: Failed to open ffmpeg pipe" << std::endl;
+            return common::Result<uint32_t>::err(
+                common::ErrorCode::EncoderError, "Failed to start ffmpeg recording");
+        }
+
+        recording_.store(true);
+        paused_.store(false);
+        std::cout << "[WindowsScreenStreamer] Record process spawned (Target: " << output_path << ")" << std::endl;
+        return common::Result<uint32_t>::ok(0); // Dummy ID
+    }
+
+    common::EmptyResult WindowsScreenStreamer::stop_recording() {
+        std::lock_guard<std::mutex> lock(recording_mutex_);
+
+        if (!recording_.load()) {
+            return common::Result<common::Ok>::err(
+                common::ErrorCode::Unknown, "Not recording");
+        }
+
+        if (recording_pipe_) {
+            std::cout << "[WindowsScreenStreamer] Closing ffmpeg pipe..." << std::endl;
+            // Send 'q' to ffmpeg to quit gracefully
+            fwrite("q", 1, 1, recording_pipe_);
+            fflush(recording_pipe_);
+            _pclose(recording_pipe_);
+            recording_pipe_ = nullptr;
+        }
+
+        recording_.store(false);
+        paused_.store(false);
+        std::cout << "[WindowsScreenStreamer] Recording stopped successfully. Final file: " << recording_path_ << std::endl;
+        return common::Result<common::Ok>::success();
+    }
+
+    common::EmptyResult WindowsScreenStreamer::pause_recording() {
+        if (!recording_.load()) {
+            return common::Result<common::Ok>::err(
+                common::ErrorCode::Unknown, "Not recording");
+        }
+
+        // Toggle pause state
+        // Note: ffmpeg gdigrab doesn't support true pause, this is a placeholder
+        // For true pause, we'd need to stop/restart ffmpeg or use a different approach
+        bool was_paused = paused_.load();
+        paused_.store(!was_paused);
+        std::cout << "[Screen] Recording " << (paused_.load() ? "paused" : "resumed") << std::endl;
+        return common::Result<common::Ok>::success();
     }
 
 }

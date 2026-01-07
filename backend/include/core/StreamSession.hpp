@@ -35,6 +35,9 @@ namespace core {
         SessionState get_state() const;
         bool is_active() const { return get_state() == SessionState::Running; }
 
+        // Get access to the underlying streamer (for recording functionality)
+        std::shared_ptr<interfaces::IVideoStreamer> get_streamer() const { return streamer_; }
+
     private:
         void worker_routine(common::CancellationToken token);
 

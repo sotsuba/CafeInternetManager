@@ -74,6 +74,14 @@ namespace windows_os {
                 n = fread(buffer.data(), 1, buffer.size(), pipe);
                 if (n <= 0) break;
 
+                // Shared Recording: If recording is active, feed the frames to the recording encoder pipe
+                if (recording_.load() && !paused_.load()) {
+                    std::lock_guard<std::mutex> lock(recording_mutex_);
+                    if (recording_pipe_) {
+                        fwrite(buffer.data(), 1, n, recording_pipe_);
+                    }
+                }
+
                 for (size_t i = 0; i < n; ++i) {
                     frame_buffer.push_back(buffer[i]);
                     if (frame_buffer.size() >= 2 &&
@@ -91,6 +99,18 @@ namespace windows_os {
             }
 
             _pclose(pipe);
+
+            // Cleanup recording if it was using this stream
+            {
+                std::lock_guard<std::mutex> lock(recording_mutex_);
+                if (recording_pipe_) {
+                    std::cout << "[Webcam] Stream stopped, closing recording pipe." << std::endl;
+                    _pclose(recording_pipe_);
+                    recording_pipe_ = nullptr;
+                    recording_.store(false);
+                }
+            }
+
             return common::Result<common::Ok>::success(); // Exit after successful session
         }
 
@@ -103,6 +123,68 @@ namespace windows_os {
 
     common::Result<common::RawFrame> WindowsWebcamStreamer::capture_snapshot() {
          return common::Result<common::RawFrame>::err(common::ErrorCode::Unknown, "Not Implemented");
+    }
+
+    common::Result<uint32_t> WindowsWebcamStreamer::start_recording(const std::string& output_path) {
+        std::lock_guard<std::mutex> lock(recording_mutex_);
+
+        if (recording_.load()) {
+            return common::Result<uint32_t>::err(
+                common::ErrorCode::Unknown, "Already recording");
+        }
+
+        recording_path_ = output_path;
+
+        // Shared Capture Logic:
+        // We start an ffmpeg process that reads MJPEG frames from stdin (which we will feed from the stream() thread)
+        // This avoids opening the webcam device twice.
+        std::string cmd = "ffmpeg -y -f mjpeg -i - -c:v libx264 -preset ultrafast -crf 23 "
+                          "-pix_fmt yuv420p \"" + output_path + "\" 2>NUL";
+
+        std::cout << "[Webcam] Starting shared recording encoder (Target: " << output_path << ")" << std::endl;
+
+        recording_pipe_ = _popen(cmd.c_str(), "wb"); // Use binary mode for writing frames
+        if (recording_pipe_) {
+            recording_.store(true);
+            paused_.store(false);
+            return common::Result<uint32_t>::ok(0);
+        }
+
+        return common::Result<uint32_t>::err(
+            common::ErrorCode::Unknown, "Failed to initialize recording encoder pipe");
+    }
+
+    common::EmptyResult WindowsWebcamStreamer::stop_recording() {
+        std::lock_guard<std::mutex> lock(recording_mutex_);
+
+        if (!recording_.load()) {
+            return common::Result<common::Ok>::err(
+                common::ErrorCode::Unknown, "Not recording");
+        }
+
+        if (recording_pipe_) {
+            fwrite("q", 1, 1, recording_pipe_);
+            fflush(recording_pipe_);
+            _pclose(recording_pipe_);
+            recording_pipe_ = nullptr;
+        }
+
+        recording_.store(false);
+        paused_.store(false);
+        std::cout << "[Webcam] Recording stopped. File: " << recording_path_ << std::endl;
+        return common::Result<common::Ok>::success();
+    }
+
+    common::EmptyResult WindowsWebcamStreamer::pause_recording() {
+        if (!recording_.load()) {
+            return common::Result<common::Ok>::err(
+                common::ErrorCode::Unknown, "Not recording");
+        }
+
+        bool was_paused = paused_.load();
+        paused_.store(!was_paused);
+        std::cout << "[Webcam] Recording " << (paused_.load() ? "paused" : "resumed") << std::endl;
+        return common::Result<common::Ok>::success();
     }
 
 }

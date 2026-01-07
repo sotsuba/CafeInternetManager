@@ -1,3 +1,0 @@
-E:\bin\cmake.exe -E rm -f CMakeFiles\GatewayWin.dir/objects.a
-C:\mingw64\bin\ar.exe qc CMakeFiles\GatewayWin.dir/objects.a @CMakeFiles\GatewayWin.dir\objects1.rsp
-C:\mingw64\bin\gcc.exe -Wl,--whole-archive CMakeFiles\GatewayWin.dir/objects.a -Wl,--no-whole-archive -o bin\GatewayWin.exe -Wl,--out-implib,libGatewayWin.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\GatewayWin.dir\linkLibs.rsp

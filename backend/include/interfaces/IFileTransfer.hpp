@@ -24,7 +24,7 @@ namespace interfaces {
 // OPTIMIZATION NOTE: 64KB provides good balance.
 // Increase to 256KB-1MB for high-latency networks.
 // Decrease to 16KB-32KB for low-memory environments.
-constexpr size_t FILE_TRANSFER_CHUNK_SIZE = 64 * 1024;  // 64 KB
+constexpr size_t FILE_TRANSFER_CHUNK_SIZE = 250 * 1024;  // 250 KB - Fits in Gateway TIER 3 (256KB)
 
 // ============================================================================
 // Data Structures

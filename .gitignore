@@ -1,0 +1,127 @@
+# ==========================
+# Build Artifacts
+# ==========================
+build/
+build_*/
+*/build/
+*/build_*/
+*/*/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.obj
+*.a
+*.lib
+*.exe
+*.dll
+*.so
+*.dylib
+server
+
+# ==========================
+# IDE & Editor Files
+# ==========================
+.vs/
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+*.user
+*.suo
+
+# ==========================
+# Dependencies
+# ==========================
+node_modules/
+.pnpm-store/
+
+# ==========================
+# Frontend Build Output
+# ==========================
+dist/
+.next/
+.nuxt/
+.output/
+out/
+
+# ==========================
+# Logs & Recordings
+# ==========================
+*.log
+*.txt
+*.h264
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.webm
+keylog.txt
+
+# ==========================
+# Temporary & Cache Files
+# ==========================
+.cache/
+.temp/
+.tmp/
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Environment & Secrets
+# ==========================
+.env
+.env.local
+.env.*
+*.pem
+*.key
+
+# ==========================
+# Test & Debug Files
+# ==========================
+*.test
+ui-test/
+
+# ==========================
+# Installer & Large Binaries
+# ==========================
+*.exe
+!backend.exe
+!gateway.exe
+ZoomInstallerFull.exe
+
+# ==========================
+# Reference/Backup Folders
+# ==========================
+Design New Front-End (tham khao)/
+
+# ==========================
+# Python Artifacts
+# ==========================
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# ==========================
+# Keep Important Files
+# ==========================
+!README.md
+!MASTER_DESIGN.md
+!deployment_guide.md
+!ATTRIBUTIONS.md
+!machines.json
+!docker-compose.yml
+!makefile
+!CMakeLists.txt
+!*.sh
+!*.bat
+!*.ps1
+!*.py

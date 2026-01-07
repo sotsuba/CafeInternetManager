@@ -1,6 +1,0 @@
-/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles/backend_core.dir
-/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles/backend_hal.dir
-/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles/BackendServer.dir
-/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles/BackendTest.dir
-/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles/edit_cache.dir
-/mnt/hgfs/CafeInternetManager/backend/build/CMakeFiles/rebuild_cache.dir

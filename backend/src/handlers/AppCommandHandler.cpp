@@ -91,8 +91,10 @@ common::EmptyResult ListAppsCommand::execute() {
         if (i > 0) res += ";";
 
         if (only_running_) {
-            // Process format: PID|Name|Icon|Exec|Keywords
-            res += std::to_string(a.pid) + "|" + a.name + "|-|" + a.exec + "|Running";
+            // Process format: PID|Name|CPU|MemoryKB|Exec|Status
+            res += std::to_string(a.pid) + "|" + a.name + "|" +
+                   std::to_string(a.cpu) + "|" + std::to_string(a.memory_kb) + "|" +
+                   a.exec + "|Running";
         } else {
             res += a.id + "|" + a.name + "|" + a.icon + "|" + a.exec + "|" + a.keywords;
         }

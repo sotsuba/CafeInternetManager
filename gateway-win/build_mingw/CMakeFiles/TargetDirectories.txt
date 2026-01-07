@@ -1,3 +1,0 @@
-D:/CafeInternetManager/gateway-win/build_mingw/CMakeFiles/GatewayWin.dir
-D:/CafeInternetManager/gateway-win/build_mingw/CMakeFiles/edit_cache.dir
-D:/CafeInternetManager/gateway-win/build_mingw/CMakeFiles/rebuild_cache.dir

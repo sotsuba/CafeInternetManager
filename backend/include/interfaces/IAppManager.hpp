@@ -14,6 +14,8 @@ namespace interfaces {
         std::string keywords; // Search keywords (from .desktop)
         std::string generic_name; // Generic name (e.g. "Web Browser")
         uint32_t pid;         // 0 if not running (for "installed apps" list), or actual PID
+        double cpu;           // CPU usage percentage (0-100)
+        size_t memory_kb;     // Memory usage in KB
     };
 
     class IAppManager {

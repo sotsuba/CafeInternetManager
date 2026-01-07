@@ -1,3 +1,0 @@
-E:\bin\cmake.exe -E rm -f CMakeFiles\BackendTest.dir/objects.a
-C:\mingw64\bin\ar.exe qc CMakeFiles\BackendTest.dir/objects.a @CMakeFiles\BackendTest.dir\objects1.rsp
-C:\mingw64\bin\c++.exe  -static -static-libgcc -static-libstdc++  -static -static-libgcc -static-libstdc++ -Wl,--whole-archive CMakeFiles\BackendTest.dir/objects.a -Wl,--no-whole-archive -o BackendTest.exe -Wl,--out-implib,libBackendTest.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\BackendTest.dir\linkLibs.rsp

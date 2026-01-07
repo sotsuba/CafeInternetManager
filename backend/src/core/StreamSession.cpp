@@ -15,8 +15,8 @@ namespace core {
     common::Result<common::Ok> StreamSession::start() {
         std::unique_lock<std::mutex> lock(state_mutex_);
 
-        if (state_ == SessionState::Running || state_ == SessionState::Starting) {
-             return common::Result<common::Ok>::err(common::ErrorCode::Busy, "Stream already running");
+        if (state_ == SessionState::Running || state_ == SessionState::Starting || state_ == SessionState::Stopping) {
+             return common::Result<common::Ok>::err(common::ErrorCode::Busy, "Stream already running or busy");
         }
 
         state_ = SessionState::Starting;

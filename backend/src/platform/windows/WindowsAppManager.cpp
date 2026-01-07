@@ -2,6 +2,7 @@
 #include <iostream>
 #include <windows.h>
 #include <tlhelp32.h>
+#include <psapi.h>
 #include <shellapi.h>
 #include <shobjidl.h>
 #include <shlguid.h>
@@ -42,6 +43,18 @@ namespace windows_os {
                 app.pid = pe32.th32ProcessID;
                 app.id = std::to_string(app.pid);
                 app.exec = app.name;
+                app.cpu = 0.0; // CPU requires time-based sampling, set to 0 for now
+                app.memory_kb = 0;
+
+                // Get memory info
+                HANDLE hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, app.pid);
+                if (hProc) {
+                    PROCESS_MEMORY_COUNTERS pmc;
+                    if (GetProcessMemoryInfo(hProc, &pmc, sizeof(pmc))) {
+                        app.memory_kb = pmc.WorkingSetSize / 1024;
+                    }
+                    CloseHandle(hProc);
+                }
 
                 procs.push_back(app);
 

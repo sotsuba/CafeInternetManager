@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, X } from 'lucide-react';
-import { Button } from './ui/button';
+import { ArrowRight } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useCallback, useEffect, useState } from 'react';
 import { FlowDiagram, FlowNode } from './FlowDiagram';
 import { StreamingText } from './StreamingText';
+import { Button } from './ui/button';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -37,7 +37,7 @@ const systemNodes: FlowNode[] = [
     description: 'Browser-based client with WebSocket connection',
     details: [
       'WebSocket client connects to Gateway on port 8888',
-      'JMuxer for H.264 video decoding and real-time playback',
+      'Real-time MJPEG stream rendering via JPEG Blobs',
       'Per-client video stream handling with state management',
       'ACK-based flow control to prevent frame drops',
       'Real-time UI updates for all backend events',
@@ -63,20 +63,20 @@ const systemNodes: FlowNode[] = [
       },
       {
         id: 'jmuxer',
-        label: 'JMuxer',
-        subtitle: 'Video Decoder',
+        label: 'Video Handler',
+        subtitle: 'JPEG Decoder',
         icon: (
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
             <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
             <path d="M10 9l5 3-5 3V9z" fill="currentColor" />
           </svg>
         ),
-        description: 'H.264 video stream decoder',
+        description: 'Real-time MJPEG stream handler',
         details: [
-          'Decodes H.264 video frames from backend',
-          'Per-client JMuxer instance for multi-stream',
-          'Renders to HTML5 video element',
-          'Low-latency playback optimization',
+          'Processes MJPEG chunks from backend',
+          'Renders frames using URL.createObjectURL and Blobs',
+          'Automatic memory management (URL revocation)',
+          'High-performance binary data handling',
         ],
       },
       {
@@ -192,10 +192,10 @@ const systemNodes: FlowNode[] = [
     description: 'Native agent with platform abstraction layer',
     details: [
       'Clean architecture: Core ↔ Interfaces ↔ Platform HAL',
-      'Broadcast bus for pub/sub video streaming',
-      'Command dispatcher routes requests to handlers',
-      'Platform implementations: Windows/Linux/macOS',
-      'Features: Screen/Webcam capture, Keylogger, App/Process manager',
+      'Dual-channel: Control (9091) and Data (9092)',
+      'High-speed MJPEG encoding for Screen/Webcam',
+      'Platform implementations: Windows, Linux, and macOS',
+      'Features: Keylogger, App Manager, Input Injection, File Transfer',
       'UDP broadcast every 5s for gateway discovery',
     ],
     children: [
@@ -235,7 +235,7 @@ const systemNodes: FlowNode[] = [
           'Windows: DXGI screen capture, SetWindowsHookEx keylogger',
           'Linux: X11/XShm capture, /dev/input evdev keylogger',
           'macOS: ScreenCaptureKit, CGEvent keylogger',
-          'FFmpeg H.264 encoding on all platforms',
+          'High-speed MJPEG encoding on all platforms',
         ],
       },
       {
@@ -252,8 +252,8 @@ const systemNodes: FlowNode[] = [
         description: 'Gateway discovery via UDP',
         details: [
           'Broadcasts UDP packet every 5 seconds',
-          'Port 9999 with DISCOVERY_MAGIC (0xCAFE1234)',
-          'Advertises hostname, IP, and TCP ports',
+          'Port 9999 with DISCOVERY_MAGIC (0x47415445)',
+          'Advertises hostname, IP, and TCP service port',
           'Gateway listens and connects automatically',
         ],
       },
@@ -386,7 +386,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                   </motion.div>
                 ))}
 
-                {currentLineIndex < terminalLines.length && completedLines.length < terminalLines.length && (
+                {currentLineIndex < terminalLines.length && currentLineIndex === completedLines.length && (
                   <div className="text-xl text-gray-900 font-medium leading-relaxed">
                     <StreamingText
                       text={terminalLines[currentLineIndex]}
@@ -476,7 +476,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                     System
                   </button>
                   {selectedPath.map((id, index) => {
-                    const node = systemNodes.find((n) => n.id === id) || 
+                    const node = systemNodes.find((n) => n.id === id) ||
                                  systemNodes.flatMap(n => n.children || []).find(n => n.id === id);
                     return (
                       <div key={id} className="flex items-center gap-2">

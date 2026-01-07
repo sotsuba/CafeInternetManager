@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/BackendTest.dir/src/tests/LinuxPlatformTest.cpp.o -o BackendTest  libbackend_hal.a libbackend_core.a -lpthread -lX11 -lXtst /usr/lib/x86_64-linux-gnu/libXtst.so /usr/lib/x86_64-linux-gnu/libXi.so /usr/lib/x86_64-linux-gnu/libXext.so /usr/lib/x86_64-linux-gnu/libX11.so 

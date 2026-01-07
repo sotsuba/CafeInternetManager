@@ -1,9 +1,17 @@
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+
 #include "handlers/FileCommandHandler.hpp"
 #include <vector>
 #include <algorithm>
 #include <iomanip>
 #include <thread>
 #include <iostream>
+
+#ifndef _WIN32
+#include <arpa/inet.h>
+#endif
 
 namespace handlers {
 
@@ -119,29 +127,58 @@ common::EmptyResult FileListCommand::execute() {
 
     if (result.is_err()) {
         ctx_.send_error("FILE_LIST_ERROR", result.error().message);
-        return common::EmptyResult::success(); // Error sent via protocol
+        return common::EmptyResult::success();
     }
 
     auto& files = result.unwrap();
 
-    // Format: JSON-like array
+    // FORMAT: BINARY-LIKE TEXT (Much faster than JSON)
+    // Entry format: name|path|size|time|dir(1/0)|hidden(1/0)
+    // Separator: \n (Newline)
     std::ostringstream ss;
-    ss << "[";
-    for (size_t i = 0; i < files.size(); ++i) {
-        if (i > 0) ss << ",";
-        const auto& f = files[i];
-        ss << "{\"name\":\"" << escape_json(f.name)
-           << "\",\"path\":\"" << escape_json(f.path)
-           << "\",\"size\":" << f.size
-           << ",\"time\":" << f.modified_time
-           << ",\"dir\":" << (f.is_directory ? "true" : "false")
-           << ",\"hidden\":" << (f.is_hidden ? "true" : "false")
-           << "}";
+    for (const auto& f : files) {
+        ss << f.name << "|"
+           << f.path << "|"
+           << f.size << "|"
+           << f.modified_time << "|"
+           << (f.is_directory ? "1" : "0") << "|"
+           << (f.is_hidden ? "1" : "0") << "\n";
     }
-    ss << "]";
 
-    std::cout << "[FileList] Sending " << files.size() << " items" << std::endl;
-    ctx_.send_data("FILES", ss.str());
+    std::cout << "[FileList] Sending " << files.size() << " items (Compact Format)" << std::endl;
+    ctx_.send_data("FILES_COMPACT", ss.str());
+
+    // Prefetch logic - using same compact format
+    std::thread([transfer = &transfer_, files, ctx = ctx_]() mutable {
+        int prefetch_count = 0;
+        const int MAX_PREFETCH = 30;
+        for (const auto& f : files) {
+            if (prefetch_count >= MAX_PREFETCH) break;
+            if (!f.is_directory || f.name == "." || f.name == "..") continue;
+
+            auto sub_result = transfer->list_directory(f.path);
+            if (sub_result.is_err()) continue;
+
+            auto& sub_files = sub_result.unwrap();
+
+            std::ostringstream sub_ss;
+            // Header: PATH\n
+            sub_ss << f.path << "\n";
+            for (const auto& sf : sub_files) {
+                sub_ss << sf.name << "|"
+                       << sf.path << "|"
+                       << sf.size << "|"
+                       << sf.modified_time << "|"
+                       << (sf.is_directory ? "1" : "0") << "|"
+                       << (sf.is_hidden ? "1" : "0") << "\n";
+            }
+
+            ctx.send_data("FILES_PREFETCH_COMPACT", sub_ss.str(), false);
+            prefetch_count++;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+    }).detach();
+
     return common::EmptyResult::success();
 }
 
@@ -170,6 +207,7 @@ common::EmptyResult FileInfoCommand::execute() {
 }
 
 common::EmptyResult FileDownloadCommand::execute() {
+    std::cout << "[FileDownload] Request for: " << path_ << " (CID: " << ctx_.client_id << ")" << std::endl;
     // Launch detached thread to handle download asynchronously
     // Capturing context by value is essential as Command object will be destroyed
     std::thread([transfer = &transfer_, path = path_, ctx = ctx_]() mutable {
@@ -192,30 +230,32 @@ common::EmptyResult FileDownloadCommand::execute() {
         header << path << "|" << info.size;
         ctx.send_data("FILE_DOWNLOAD_START", header.str());
 
-        // Stream file chunks
         size_t chunk_num = 0;
-        auto download_result = transfer->download_file(
-            path,
-            [&ctx, &chunk_num](const uint8_t* data, size_t size, bool is_last) {
-                // Encode chunk as base64 for text protocol
-                // Note: In high-performance scenarios, base64 overhead is significant.
-                // Future optimization: Use separate binary channel or raw socket mode.
-                std::string encoded = base64_encode(data, size);
+        auto download_result = transfer->download_file(path,
+            [&](const uint8_t* data, size_t size, bool is_last) {
+                // HIGH PERFORMANCE BINARY TRANSFER (Traffic Class 0x04)
+                // Format: [4B Sequence][1B IsLast][Raw Data]
+                std::vector<uint8_t> payload;
+                payload.reserve(5 + size);
 
-                std::ostringstream chunk_msg;
-                chunk_msg << chunk_num++ << "|" << size << "|"
-                          << (is_last ? "1" : "0") << "|" << encoded;
+                uint32_t net_seq = htonl(static_cast<uint32_t>(chunk_num++));
+                const uint8_t* seq_ptr = reinterpret_cast<const uint8_t*>(&net_seq);
+                payload.insert(payload.end(), seq_ptr, seq_ptr + 4);
+                payload.push_back(is_last ? 1 : 0);
+                payload.insert(payload.end(), data, data + size);
 
-                ctx.send_data("FILE_CHUNK", chunk_msg.str(), false); // Low Priority
+                ctx.send_raw_binary(std::move(payload), 0x04, true); // 0x04 = TRAFFIC_FILE, is_critical=true
             },
             nullptr  // No progress callback needed
         );
 
         if (download_result.is_err()) {
+            std::cerr << "[FileDownload] Async error for " << path << ": " << download_result.error().message << std::endl;
             ctx.send_error("FILE_DOWNLOAD_ERROR", download_result.error().message);
             return;
         }
 
+        std::cout << "[FileDownload] Finished successfully: " << path << std::endl;
         ctx.send_data("FILE_DOWNLOAD_END", path);
 
     }).detach();

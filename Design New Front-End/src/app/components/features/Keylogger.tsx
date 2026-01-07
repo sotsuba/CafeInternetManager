@@ -123,10 +123,10 @@ export function Keylogger({ backendId }: KeyloggerProps) {
         </div>
       ) : (
         <div className="flex-1 flex flex-col gap-4">
-          {/* Keylog Display */}
+          {/* Keylog Display - Notepad style (horizontal typing) */}
           <div
             ref={keylogContainerRef}
-            className="flex-1 bg-gray-900 rounded-xl overflow-hidden p-4 font-mono text-sm text-green-400 overflow-y-auto"
+            className="flex-1 bg-gray-900 rounded-xl overflow-hidden p-4 font-mono text-sm text-green-400 overflow-y-auto whitespace-pre-wrap break-words"
           >
             {localKeylogs.length === 0 ? (
               <motion.div
@@ -137,16 +137,40 @@ export function Keylogger({ backendId }: KeyloggerProps) {
                 Waiting for keystrokes...
               </motion.div>
             ) : (
-              localKeylogs.map((log, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="mb-1"
-                >
-                  <span className="text-gray-500">[{new Date(log.timestamp).toLocaleTimeString()}]</span> {log.text}
-                </motion.div>
-              ))
+              <div className="leading-relaxed">
+                {localKeylogs.map((log, idx) => {
+                  // Handle special characters for display
+                  const text = log.text;
+
+                  // Newline - render as actual line break
+                  if (text === '\n' || text === '\\n') {
+                    return <br key={idx} />;
+                  }
+
+                  // Tab - render as spaces
+                  if (text === '\t' || text === '\\t') {
+                    return <span key={idx} className="text-gray-600">{'    '}</span>;
+                  }
+
+                  // Backspace - show as special marker
+                  if (text === '[Backspace]') {
+                    return <span key={idx} className="text-red-400 text-xs">⌫</span>;
+                  }
+
+                  // Other special keys in brackets - show smaller
+                  if (text.startsWith('[') && text.endsWith(']')) {
+                    return <span key={idx} className="text-yellow-400 text-xs mx-0.5">{text}</span>;
+                  }
+
+                  // Regular characters - just show inline
+                  return <span key={idx}>{text}</span>;
+                })}
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="inline-block w-2 h-4 bg-green-400 ml-0.5 align-middle"
+                />
+              </div>
             )}
           </div>
 

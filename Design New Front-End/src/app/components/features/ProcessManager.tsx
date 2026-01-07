@@ -15,7 +15,7 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
   const { activeClient, sendCommand } = useGateway();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProcesses, setSelectedProcesses] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<'name' | 'cpu' | 'memory' | 'pid'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'pid'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showLauncher, setShowLauncher] = useState(false);
   const [launchCommand, setLaunchCommand] = useState('');
@@ -66,8 +66,6 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
       const multiplier = sortOrder === 'asc' ? 1 : -1;
       if (sortBy === 'name') return multiplier * a.name.localeCompare(b.name);
       if (sortBy === 'pid') return multiplier * (a.pid - b.pid);
-      if (sortBy === 'cpu') return multiplier * ((a.cpu || 0) - (b.cpu || 0));
-      if (sortBy === 'memory') return multiplier * ((a.memory || 0) - (b.memory || 0));
       return 0;
     });
 
@@ -219,18 +217,6 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
           >
             PID {sortBy === 'pid' && (sortOrder === 'asc' ? '↑' : '↓')}
           </button>
-          <button
-            onClick={() => handleSort('cpu')}
-            className="w-24 text-right hover:text-black transition-colors"
-          >
-            CPU {sortBy === 'cpu' && (sortOrder === 'asc' ? '↑' : '↓')}
-          </button>
-          <button
-            onClick={() => handleSort('memory')}
-            className="w-24 text-right hover:text-black transition-colors"
-          >
-            Memory {sortBy === 'memory' && (sortOrder === 'asc' ? '↑' : '↓')}
-          </button>
           <div className="w-28 text-center">Status</div>
         </div>
 
@@ -251,8 +237,6 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
                   <div className="w-10" />
                   <div className="flex-1 font-mono text-sm truncate opacity-60">{cmd}</div>
                   <div className="w-24 font-mono text-sm text-gray-400">---</div>
-                  <div className="w-24 text-right text-gray-400">---</div>
-                  <div className="w-24 text-right text-sm text-gray-400">---</div>
                   <div className="w-28 text-center">
                     <span className="inline-block px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                       Starting...
@@ -281,17 +265,6 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
                   </div>
                   <div className="flex-1 font-mono text-sm truncate">{process.name}</div>
                   <div className="w-24 font-mono text-sm text-gray-600">{process.pid}</div>
-                  <div className="w-24 text-right">
-                    <span className={`
-                      inline-block px-2 py-1 rounded text-sm
-                      ${(process.cpu || 0) > 10 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}
-                    `}>
-                      {(process.cpu || 0).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="w-24 text-right text-sm text-gray-600">
-                    {process.memory || 0} MB
-                  </div>
                   <div className="w-28 text-center">
                     <span className={`inline-block px-2 py-1 rounded-full text-xs ${
                       process.status === 'Running' ? 'bg-green-100 text-green-700' :
@@ -314,11 +287,7 @@ export function ProcessManager({ backendId }: ProcessManagerProps) {
           Total: {filteredProcesses.length} processes
           {searchQuery && ` (filtered from ${processes.length})`}
         </div>
-        <div>
-          Total CPU: {processes.reduce((sum, p) => sum + (p.cpu || 0), 0).toFixed(1)}%
-          {' • '}
-          Total Memory: {processes.reduce((sum, p) => sum + (p.memory || 0), 0)} MB
-        </div>
+
       </div>
 
       {/* Launch Process Dialog */}

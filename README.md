@@ -1,259 +1,257 @@
-# CafeInternetManager
+# 🖥️ CafeInternetManager
 
-A remote monitoring and management system for internet cafes and computer labs. Features a **C++17 WebSocket server** running on client machines and a **TypeScript/Vite frontend** for administrators.
+<div align="center">
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![C++](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
-![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+**Hệ thống quản lý và giám sát từ xa cho quán net và phòng máy tính**
 
-## Features
+[![C++17](https://img.shields.io/badge/C++-17-00599C?logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/17)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://reactjs.org/)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey)](.)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-- 📹 **Live Webcam Streaming** — Real-time video from client machines
-- 🖥️ **Screen Capture** — Remote screen monitoring with multiple backend support
-- ⌨️ **Keyboard Logger** — Monitor keystrokes (requires root)
-- 📊 **Process Manager** — List and kill processes remotely
-- ⚡ **System Control** — Remote shutdown/restart
-- 🌐 **Wake-on-LAN** — Power on machines remotely
-- 🔌 **Persistent Connections** — Maintain WebSocket connections for thumbnails
+</div>
 
-## Architecture
+---
+
+## 📋 Tổng Quan
+
+CafeInternetManager là giải pháp hoàn chỉnh để quản lý từ xa các máy tính trong quán net hoặc phòng lab. Hệ thống bao gồm 3 thành phần chính:
+
+| Thành phần | Công nghệ | Mô tả |
+|:-----------|:----------|:------|
+| **Backend** | C++17 | Agent chạy trên máy client, xử lý lệnh và streaming |
+| **Gateway** | C | Relay server trung gian, định tuyến WebSocket |
+| **Frontend** | React + TypeScript + Vite | Giao diện quản trị web |
+
+---
+
+## ✨ Tính Năng
+
+### 🎥 Streaming & Giám Sát
+- **Live Screen Streaming** — Xem màn hình realtime với H.264 encoding
+- **Webcam Streaming** — Stream camera trực tiếp
+- **Screen Recording** — Ghi lại màn hình và tải về
+- **Snapshot Capture** — Chụp ảnh màn hình/webcam
+
+### 💻 Quản Lý Hệ Thống
+- **Process Manager** — Xem danh sách tiến trình (CPU, RAM usage), kill process
+- **Remote Control** — Input chuột/bàn phím từ xa
+- **System Control** — Shutdown, restart, lock máy từ xa
+- **File Explorer** — Duyệt file trên máy client
+
+### 🔌 Kết Nối & Tiện Ích
+- **Auto-Discovery** — Tự động phát hiện backend trong mạng LAN
+- **Wake-on-LAN** — Bật máy từ xa qua mạng
+- **Persistent Connection** — Duy trì kết nối WebSocket ổn định
+- **Multi-client Support** — Quản lý nhiều máy cùng lúc
+
+---
+
+## 🏛️ Kiến Trúc Hệ Thống
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Frontend (Web UI)                          │
-│            TypeScript/Vite • WebSocket Client                   │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ ws://host:9004
-┌────────────────────────────▼────────────────────────────────────┐
-│                    C++ WebSocket Server                         │
-│  ┌──────────────┐  ┌─────────────────┐  ┌───────────────────┐  │
-│  │  TcpListener │→ │ WebSocketSession│→ │ CommandRegistry   │  │
-│  └──────────────┘  └─────────────────┘  └─────────┬─────────┘  │
-│                                                    │            │
-│  ┌─────────────────────────────────────────────────▼─────────┐ │
-│  │                   Command Handlers                         │ │
-│  │  Capture • Stream • Keylogger • Process • System          │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │                      Services                              │ │
-│  │  WebcamCapture • ScreenCapture • KeyboardListener         │ │
-│  └───────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           FRONTEND (Web UI)                              │
+│              React 18 + TypeScript + Vite + TailwindCSS                  │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ WebSocket (Port 9002)
+┌────────────────────────────────▼────────────────────────────────────────┐
+│                            GATEWAY (Relay)                               │
+│                   C • Multi-threaded • Traffic Routing                   │
+│                                                                          │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────────┐  │
+│   │ WS Listener │  │ UDP Listener│  │ Thread Pool │  │ Traffic Class │  │
+│   │   :9002     │  │   :9003     │  │             │  │   Router      │  │
+│   └─────────────┘  └─────────────┘  └─────────────┘  └───────────────┘  │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │ TCP (Port 9001)
+┌────────────────────────────────▼────────────────────────────────────────┐
+│                           BACKEND (Agent)                                │
+│               C++17 • Cross-platform • SOLID Architecture                │
+│                                                                          │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │                     Command Handlers                             │   │
+│   │  Stream • Capture • Process • File • System • Keylogger         │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │                      Platform Layer                               │   │
+│   │    Windows: DirectX, WinAPI, Media Foundation                    │   │
+│   │    Linux: X11/Wayland, V4L2, uinput                              │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### SOLID Principles
+---
 
-The backend follows **SOLID OOP principles**:
+## 🚀 Cài Đặt
 
-| Principle | Implementation |
-|-----------|----------------|
-| **S**ingle Responsibility | Each class has one job (e.g., `WebcamCapture` only captures) |
-| **O**pen/Closed | New commands via `CommandRegistry` without modifying code |
-| **L**iskov Substitution | All implementations are substitutable for interfaces |
-| **I**nterface Segregation | Small interfaces (`IMessageSender`, `ICaptureDevice`) |
-| **D**ependency Inversion | `ApplicationBuilder` injects all dependencies |
+### Yêu Cầu
 
-## Requirements
+| Component | Requirements |
+|:----------|:-------------|
+| **Backend** | C++17 compiler, CMake 3.16+, FFmpeg |
+| **Gateway** | C compiler, CMake, pthreads |
+| **Frontend** | Node.js 18+, npm/pnpm |
 
-### Server (C++)
+### Build Backend (Windows)
 
-- Linux (uses `epoll`, `/dev/input`, v4l2)
-- C++17 compiler (g++)
-- pthread
-- ffmpeg (for capture)
+```powershell
+cd backend
+mkdir build_win && cd build_win
+cmake -G "MinGW Makefiles" ..
+cmake --build . --config Release
+```
+
+### Build Backend (Linux)
 
 ```bash
-# Fedora
-sudo dnf install gcc-c++ ffmpeg
-
-# Ubuntu/Debian
-sudo apt install g++ ffmpeg
+cd backend
+mkdir build_linux && cd build_linux
+cmake ..
+make -j$(nproc)
 ```
 
-### Frontend
-
-- Node.js 18+
-- npm or pnpm
-
-### Optional (Screen Capture Backends)
+### Build Gateway
 
 ```bash
-# X11
-sudo dnf install scrot ImageMagick
-
-# Wayland (wlroots)
-sudo dnf install grim
-
-# GNOME Wayland (limited support)
-# gnome-screenshot is usually pre-installed
-```
-
-## Installation
-
-### Build Server
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/CafeInternetManager.git
-cd CafeInternetManager
-
-# Build
+# Linux
+cd gateway
+mkdir build && cd build
+cmake ..
 make
 
-# Or with debug symbols
-make debug
+# Windows (MinGW)
+cd gateway-win
+mkdir build_mingw && cd build_mingw
+cmake -G "MinGW Makefiles" ..
+cmake --build .
 ```
 
 ### Setup Frontend
 
 ```bash
-cd frontend
+cd "Design New Front-End"
 npm install
-```
-
-## Usage
-
-### Start Server
-
-```bash
-# Requires sudo for keylogger and system control
-sudo -E ./server 9004
-```
-
-Or use the make target:
-
-```bash
-make run
-```
-
-### Start Frontend
-
-```bash
-cd frontend
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+---
 
-### Wake-on-LAN
+## 📖 Sử Dụng
+
+### 1. Khởi động Gateway
 
 ```bash
-# Wake a single machine
-./wol.py AA:BB:CC:DD:EE:FF
-
-# Wake all machines from machines.json
-./wol.py --all
-
-# List configured machines
-./wol.py --list
+# Mặc định: WS port 9002, UDP port 9003, Backend port 9001
+./gateway 9002 9003 9001
 ```
 
-## WebSocket Commands
+### 2. Khởi động Backend trên máy client
 
-| Command | Description |
-|---------|-------------|
-| `capture_webcam` | Capture single webcam frame (JPEG) |
-| `capture_screen` | Capture single screen frame (PNG) |
-| `start_webcam_stream` | Start webcam stream at 30 FPS |
-| `start_screen_stream` | Start screen stream at 30 FPS |
-| `stop_stream` | Stop active stream |
-| `start_keylogger` | Start keyboard monitoring |
-| `stop_keylogger` | Stop keyboard monitoring |
-| `list_process` | List top 50 processes by memory |
-| `kill_process:<PID>` | Kill process by PID |
-| `shutdown` | Shutdown remote machine |
-| `restart` | Restart remote machine |
+```bash
+# Windows
+backend.exe
 
-## Project Structure
+# Linux (cần sudo cho một số tính năng)
+sudo ./backend
+```
+
+### 3. Mở Frontend
+
+```bash
+cd "Design New Front-End"
+npm run dev
+# Mở http://localhost:5173
+```
+
+### 4. Wake-on-LAN
+
+```bash
+# Wake một máy
+python wol.py AA:BB:CC:DD:EE:FF
+
+# Wake tất cả máy từ machines.json
+python wol.py --all
+```
+
+---
+
+## 📁 Cấu Trúc Dự Án
 
 ```
 CafeInternetManager/
-├── src/
-│   ├── main.cpp                 # Entry point
-│   ├── app/
-│   │   └── application.hpp      # DI container
-│   ├── core/
-│   │   ├── interfaces.hpp       # Abstract interfaces
-│   │   └── logger.hpp           # Logger implementations
-│   ├── capture/
-│   │   ├── webcam_capture.hpp   # Webcam via ffmpeg
-│   │   └── screen_capture.hpp   # Multi-backend screen capture
-│   ├── commands/
-│   │   ├── command_registry.hpp # Command routing
-│   │   └── handlers.hpp         # Command handlers
-│   ├── services/
-│   │   ├── streaming_service.hpp
-│   │   ├── keyboard_service.hpp
-│   │   └── system_service.hpp
-│   └── net/
-│       ├── server.hpp           # TCP server
-│       ├── websocket_session.hpp
-│       └── websocket_protocol.hpp
-├── frontend/                    # TypeScript/Vite frontend
-├── Makefile
-├── machines.json               # WOL configuration
-└── wol.py                      # Wake-on-LAN script
+├── backend/                 # C++17 Agent
+│   ├── include/             # Header files
+│   ├── src/                 # Source files
+│   │   ├── core/            # Core logic (Server, CommandRegistry)
+│   │   ├── platform/        # Platform-specific (Windows/Linux)
+│   │   └── commands/        # Command handlers
+│   └── CMakeLists.txt
+├── gateway/                 # C Gateway (Linux)
+├── gateway-win/             # C Gateway (Windows)
+├── Design New Front-End/    # React Frontend
+│   ├── src/
+│   │   ├── components/      # UI Components
+│   │   ├── pages/           # Page components
+│   │   ├── context/         # React contexts
+│   │   └── services/        # WebSocket client
+│   └── package.json
+├── machines.json            # WOL configuration
+├── docker-compose.yml       # Docker deployment
+└── README.md
 ```
 
-## Screen Capture Backends
+---
 
-The server auto-detects the best available backend:
+## 🔧 WebSocket Commands
 
-| Environment | Backend | Status |
-|-------------|---------|--------|
-| X11 | `scrot`, `import`, `ffmpeg` | ✅ Reliable |
-| Wayland (wlroots) | `grim` | ✅ Reliable |
-| Wayland (GNOME) | `gnome-screenshot` | ⚠️ May produce black frames |
+| Command | Description |
+|:--------|:------------|
+| `ping` | Health check |
+| `start_screen_stream` | Bắt đầu stream màn hình |
+| `start_webcam_stream` | Bắt đầu stream webcam |
+| `stop_stream` | Dừng stream hiện tại |
+| `capture_screen` | Chụp ảnh màn hình |
+| `capture_webcam` | Chụp ảnh webcam |
+| `start_recording` | Bắt đầu ghi hình |
+| `stop_recording` | Dừng ghi và gửi file |
+| `list_process` | Liệt kê tiến trình |
+| `kill_process:<PID>` | Kill process theo PID |
+| `launch_process:<path>` | Khởi chạy ứng dụng |
+| `list_directory:<path>` | Liệt kê file/folder |
+| `download_file:<path>` | Tải file về |
+| `upload_file` | Upload file lên |
+| `shutdown` | Tắt máy |
+| `restart` | Khởi động lại |
+| `lock` | Khóa màn hình |
 
-> **Note**: GNOME Wayland restricts screen capture for security. Webcam streaming works reliably as an alternative.
+---
 
-## Configuration
+## 🔒 Bảo Mật
 
-### machines.json
+> ⚠️ **Lưu ý**: Hệ thống này được thiết kế cho mạng nội bộ (LAN). Không nên expose ra Internet mà không có các biện pháp bảo mật bổ sung.
 
-```json
-{
-  "machines": [
-    {
-      "name": "PC-01",
-      "mac": "AA:BB:CC:DD:EE:01",
-      "ip": "192.168.1.101",
-      "port": 9004
-    }
-  ]
-}
-```
+---
 
-## Known Limitations
+## 📄 License
 
-1. **GNOME Wayland**: Screen capture may fail due to security restrictions
-2. **Keylogger**: Requires root privileges to read `/dev/input` devices
-3. **Linux-only**: Uses Linux-specific APIs (epoll, v4l2, proc filesystem)
+MIT License - Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
 
-## Development
+---
 
-```bash
-# Rebuild
-make rebuild
+## 👥 Đóng Góp
 
-# Clean
-make clean
-
-# Show project structure
-make tree
-
-# Format code (requires clang-format)
-make format
-```
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing`)
+1. Fork repository
+2. Tạo feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
-5. Open a Pull Request
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Mở Pull Request
+
+---
+
+<div align="center">
+
+**Made with ❤️ for Internet Cafe Management**
+
+</div>

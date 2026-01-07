@@ -23,15 +23,15 @@ struct CommandContext {
     uint32_t backend_id;
 
     // Response callback (captured by command for async responses)
-    // Takes: payload bytes, is_critical flag
-    using ResponseFn = std::function<void(std::vector<uint8_t>&&, bool is_critical)>;
+    // Takes: payload bytes, is_critical flag, traffic_class
+    using ResponseFn = std::function<void(std::vector<uint8_t>&&, bool is_critical, uint8_t traffic_class)>;
     ResponseFn respond;
 
     // Convenience methods
     void send_text(const std::string& text, bool is_critical = true, const std::string& prefix = "") const {
         std::string full_text = prefix + text;
         std::vector<uint8_t> data(full_text.begin(), full_text.end());
-        respond(std::move(data), is_critical);
+        respond(std::move(data), is_critical, 0x01); // 0x01 = TRAFFIC_CONTROL
     }
 
     void send_status(const std::string& category, const std::string& status) const {
@@ -44,6 +44,10 @@ struct CommandContext {
 
     void send_data(const std::string& type, const std::string& data, bool is_critical = true) const {
         send_text("DATA:" + type + ":" + data, is_critical);
+    }
+
+    void send_raw_binary(std::vector<uint8_t>&& data, uint8_t traffic_class, bool is_critical = false) const {
+        respond(std::move(data), is_critical, traffic_class);
     }
 };
 

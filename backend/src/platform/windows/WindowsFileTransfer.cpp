@@ -243,11 +243,12 @@ common::EmptyResult WindowsFileTransfer::download_file(
 ) {
     std::wstring wpath = to_wide(path);
 
+    std::cout << "[FileDownload] Opening file: " << path << std::endl;
     // Open file with sequential scan hint for better read-ahead caching
     HANDLE h_file = CreateFileW(
         wpath.c_str(),
         GENERIC_READ,
-        FILE_SHARE_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, // More sharing for system files
         nullptr,
         OPEN_EXISTING,
         FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN,
@@ -255,10 +256,13 @@ common::EmptyResult WindowsFileTransfer::download_file(
     );
 
     if (h_file == INVALID_HANDLE_VALUE) {
+        DWORD err = GetLastError();
+        std::cerr << "[FileDownload] CreateFileW failed for " << path << " Error: " << err << std::endl;
         return common::EmptyResult::err(
             common::ErrorCode::DeviceNotFound,
-            "Cannot open file: " + path);
+            "Cannot open file: " + path + " (WinError: " + std::to_string(err) + ")");
     }
+    std::cout << "[FileDownload] File opened successfully: " << path << std::endl;
 
     // Get file size
     LARGE_INTEGER file_size;
@@ -299,6 +303,7 @@ common::EmptyResult WindowsFileTransfer::download_file(
 
         // Call data callback
         if (on_chunk) {
+            // std::cout << "[FileDownload] Sending chunk " << bytes_read << "/" << total_size << std::endl;
             on_chunk(buffer.data(), actually_read, is_last);
         }
 
